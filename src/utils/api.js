@@ -147,3 +147,47 @@ export const formatTime = (time) => {
     minute: '2-digit',
   })
 }
+
+/**
+ * Отправка уведомления админу о новой записи
+ */
+export const notifyAdminBooking = async (bookingData) => {
+  const BOT_TOKEN = 'YOUR_BOT_TOKEN' // Замени на токен от @BotFather
+  const ADMIN_CHAT_ID = 'YOUR_ADMIN_ID' // Замени на ID админа (узнать через @userinfobot)
+  
+  const message = `
+🎭 <b>НОВАЯ ЗАПИСЬ — ЛЕГЕНДА</b>
+
+👤 Клиент: ${bookingData.userName || 'Неизвестно'}
+📅 Дата: ${bookingData.date}
+⏰ Время: ${bookingData.time}
+💈 Мастер: ${bookingData.barber}
+
+🔗 Открыть Mini App для подтверждения
+  `
+  
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: ADMIN_CHAT_ID,
+        text: message,
+        parse_mode: 'HTML',
+      }),
+    })
+    
+    const result = await response.json()
+    console.log('Admin notification sent:', result)
+    return result.ok
+  } catch (error) {
+    console.error('Error sending admin notification:', error)
+    // Fallback: сохраняем в localStorage для ручной проверки
+    const pending = JSON.parse(localStorage.getItem('legend_pending_bookings') || '[]')
+    pending.push({ ...bookingData, createdAt: new Date().toISOString() })
+    localStorage.setItem('legend_pending_bookings', JSON.stringify(pending))
+    return false
+  }
+}

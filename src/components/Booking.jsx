@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
+import { notifyAdminBooking } from '../utils/api'
 
 export default function Booking() {
-  const { showAlert } = useTelegramApp()
+  const { showAlert, user } = useTelegramApp()
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedTime, setSelectedTime] = useState('')
   const [selectedBarber, setSelectedBarber] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const barbers = [
     { id: 1, name: 'Максим', specialty: 'Классический стиль', available: true },
@@ -15,12 +17,47 @@ export default function Booking() {
 
   const times = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']
 
-  const handleBooking = () => {
+  const handleBooking = async () => {
     if (!selectedDate || !selectedTime || !selectedBarber) {
       showAlert('Заполни все поля')
       return
     }
-    showAlert(`✓ Запись создана на ${selectedDate} в ${selectedTime}`)
+    
+    setIsSubmitting(true)
+    
+    const barberName = barbers.find(b => b.id === selectedBarber)?.name || 'Неизвестно'
+    
+    const bookingData = {
+      userId: user?.id || 'unknown',
+      userName: user?.first_name || 'Гость',
+      userUsername: user?.username || '',
+      date: selectedDate,
+      time: selectedTime,
+      barber: barberName,
+      barberId: selectedBarber,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    }
+    
+    // Сохраняем запись в localStorage
+    const existing = JSON.parse(localStorage.getItem('legend_bookings') || '[]')
+    existing.push(bookingData)
+    localStorage.setItem('legend_bookings', JSON.stringify(existing))
+    
+    // Отправляем уведомление админу
+    const notified = await notifyAdminBooking(bookingData)
+    
+    if (notified) {
+      showAlert(`✓ Запись создана! Администратор получил уведомление.`)
+    } else {
+      showAlert(`✓ Запись сохранена! Админ получит уведомление позже.`)
+    }
+    
+    // Очищаем форму
+    setSelectedDate('')
+    setSelectedTime('')
+    setSelectedBarber('')
+    setIsSubmitting(false)
   }
 
   return (
@@ -109,23 +146,66 @@ export default function Booking() {
       {/* Confirm Button */}
       <button
         onClick={handleBooking}
-        className="w-full card-premium bg-gradient-to-r from-legend-brass/20 to-legend-gold/20 border border-legend-gold pressable hover:shadow-[0_0_30px_rgba(198,169,107,0.4)]"
+        disabled={isSubmitting}
+        className={`w-full card-premium bg-gradient-to-r from-legend-brass/20 to-legend-gold/20 border border-legend-gold pressable hover:shadow-[0_0_30px_rgba(198,169,107,0.4)] ${isSubmitting ? 'opacity-60 cursor-wait' : ''}`}
       >
-        <p className="text-center text-lg font-serif font-bold text-legend-gold">Подтвердить запись</p>
+        <p className="text-center text-lg font-serif font-bold text-legend-gold">
+          {isSubmitting ? '⏳ Отправка...' : 'Подтвердить запись'}
+        </p>
       </button>
 
-      {/* YClients iframe (optional) */}
-      <div className="card-premium border-legend-wenge/50 p-0 overflow-hidden">
-        <p className="px-4 pt-4 text-sm text-legend-light/60">Или выбери через календарь</p>
-        <iframe
-          title="yclients-calendar"
-          src="https://your-site.yclients.com/schedule"
-          width="100%"
-          height="400"
-          style={{ border: 'none' }}
-          className="mt-2"
-        />
-      </div>
+      {/* My Bookings */}
+      <MyBookings />
+    </div>
+  )
+}
+
+// Компонент для отображения записей пользователя
+function MyBookings() {
+  const [bookings, setBookings] = useState([])
+  const { showAlert } = useTelegramApp()
+  
+  useEffect(() => {
+    const stored = localStorage.getItem('legend_bookings')
+    if (stored) {
+      setBookings(JSON.parse(stored).reverse())
+    }
+  }, [])
+  
+  const cancelBooking = (index) => {
+    const stored = JSON.parse(localStorage.getItem('legend_bookings') || '[]')
+    stored.splice(index, 1)
+    localStorage.setItem('legend_bookings', JSON.stringify(stored))
+    setBookings(stored.reverse())
+    showAlert('Запись отменена')
+  }
+  
+  if (bookings.length === 0) return null
+  
+  return (
+    <div className="space-y-3">
+      <p className="text-legend-gold text-sm font-bold uppercase">Мои записи</p>
+      {bookings.slice(0, 3).map((booking, idx) => (
+        <div key={idx} className="card-premium border-legend-wenge">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-bold text-legend-light">{booking.barber}</p>
+              <p className="text-xs text-legend-light/60">{booking.date} в {booking.time}</p>
+              <span className={`text-xs px-2 py-0.5 rounded mt-1 inline-block ${
+                booking.status === 'pending' ? 'bg-legend-brass/20 text-legend-brass' : 'bg-legend-gold/20 text-legend-gold'
+              }`}>
+                {booking.status === 'pending' ? '⏳ Ожидание' : '✓ Подтверждено'}
+              </span>
+            </div>
+            <button 
+              onClick={() => cancelBooking(idx)}
+              className="text-xs text-legend-light/40 hover:text-red-400 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
