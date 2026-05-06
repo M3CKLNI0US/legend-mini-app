@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
+import PhoneVerification from './PhoneVerification'
 
 export default function Settings({ user }) {
   const { showAlert, webApp } = useTelegramApp()
@@ -56,6 +57,9 @@ export default function Settings({ user }) {
           <span className="text-legend-gold text-sm">15 января 2024</span>
         </div>
       </div>
+
+      {/* Phone Verification */}
+      <PhoneVerification />
 
       {/* Notifications */}
       <div className="card-premium space-y-3">
