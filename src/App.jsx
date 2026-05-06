@@ -5,9 +5,12 @@ import Profile from './components/Profile'
 import ReferralSystem from './components/ReferralSystem'
 import Booking from './components/Booking'
 import Settings from './components/Settings'
+import AdminPanel from './components/AdminPanel'
 import MainButton from './components/MainButton'
 import BottomNavigation from './components/BottomNavigation'
 import './App.css'
+
+const ADMIN_ID = '1100054796'
 
 export default function App() {
   const { user, isReady } = useTelegramApp()
@@ -83,13 +86,21 @@ export default function App() {
         {currentPage === 'settings' && (
           <Settings user={user} />
         )}
+
+        {currentPage === 'admin' && (
+          <AdminPanel />
+        )}
       </div>
 
       {/* Main Button */}
       <MainButton currentPage={currentPage} />
 
       {/* Bottom Navigation */}
-      <BottomNavigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <BottomNavigation 
+        currentPage={currentPage} 
+        setCurrentPage={setCurrentPage}
+        isAdmin={user?.id?.toString() === ADMIN_ID}
+      />
     </div>
   )
 }
