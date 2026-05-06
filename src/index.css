@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-legend-black text-legend-light;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-bold;
+  }
+}
+
+@layer components {
+  .card-premium {
+    @apply bg-legend-deep border border-legend-wenge rounded-lg p-4 transition-all duration-300;
+  }
+
+  .card-premium:hover {
+    @apply border-legend-gold shadow-[0_0_20px_rgba(198,169,107,0.3)];
+  }
+
+  .btn-gold {
+    @apply px-4 py-3 border border-legend-gold text-legend-gold rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(198,169,107,0.5)] active:scale-95;
+  }
+
+  .btn-gold-filled {
+    @apply px-4 py-3 bg-legend-gold text-legend-black rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(198,169,107,0.6)] active:scale-95;
+  }
+
+  .badge-level {
+    @apply inline-block px-3 py-1 border border-legend-gold text-legend-gold text-xs font-bold uppercase tracking-wider;
+  }
+
+  .line-accent {
+    @apply h-0.5 bg-gradient-to-r from-transparent via-legend-gold to-transparent;
+  }
+}
