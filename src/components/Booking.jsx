@@ -156,6 +156,20 @@ export default function Booking() {
 
       {/* My Bookings */}
       <MyBookings />
+
+      {/* YClients Integration */}
+      <div className="card-premium border-legend-wenge/50 p-0 overflow-hidden">
+        <p className="px-4 pt-4 text-sm text-legend-gold font-bold uppercase">Запись через YClients</p>
+        <p className="px-4 text-xs text-legend-light/60 mb-2">Официальная система записи</p>
+        <iframe
+          title="yclients-calendar"
+          src="https://n2046570.yclients.com/company/1794570/personal/menu?o="
+          width="100%"
+          height="500"
+          style={{ border: 'none' }}
+          className="mt-2"
+        />
+      </div>
     </div>
   )
 }
