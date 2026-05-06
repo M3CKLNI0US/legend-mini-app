@@ -261,12 +261,3 @@ npm audit fix
 MIT License - Используй свободно
 
 ## 🙋 Поддержка
-
-При вопросах обратись к документации:
-- [Telegram WebApp Docs](https://core.telegram.org/bots/webapps)
-- [React Docs](https://react.dev)
-- [Tailwind CSS](https://tailwindcss.com)
-
----
-
-**Готово! Твой Telegram Mini App для ЛЕГЕНДЫ полностью настроен.** 🎭
