@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
 
 export default function ReferralSystem({ referralCount, setReferralCount }) {
-  const { shareLink, showAlert, user } = useTelegramApp()
+  const { shareLink, showAlert, user, getSavedPhone } = useTelegramApp()
   const [copied, setCopied] = useState(false)
   const [referredUsers, setReferredUsers] = useState([])
+  const [hasPhone, setHasPhone] = useState(false)
+  const [showPhoneModal, setShowPhoneModal] = useState(false)
+  const [pendingReferrerId, setPendingReferrerId] = useState(null)
 
   // Загрузка данных из localStorage
   useEffect(() => {
@@ -16,7 +19,11 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
     if (storedCount) {
       setReferralCount(parseInt(storedCount, 10))
     }
-  }, [setReferralCount])
+    
+    // Проверяем есть ли у пользователя подтвержденный номер
+    const phone = getSavedPhone()
+    setHasPhone(!!phone)
+  }, [setReferralCount, getSavedPhone])
 
   // Обработка входящего реферального кода
   useEffect(() => {
@@ -25,17 +32,53 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
       const startParam = tg.initDataUnsafe.start_param
       if (startParam.startsWith('ref_')) {
         const referrerId = startParam.replace('ref_', '')
-        // Сохраняем что пользователь пришел по реферальной ссылке
-        localStorage.setItem('legend_referrer_id', referrerId)
-        console.log('Referral code detected:', referrerId)
+        // Проверяем есть ли у приглашенного номер телефона
+        const phone = getSavedPhone()
+        if (!phone) {
+          // Если нет номера - показываем модалку с просьбой подтвердить
+          setPendingReferrerId(referrerId)
+          setShowPhoneModal(true)
+          localStorage.setItem('legend_pending_referrer', referrerId)
+        } else {
+          // Если номер есть - начисляем бонус пригласившему
+          processReferralBonus(referrerId)
+        }
       }
     }
-  }, [])
+  }, [getSavedPhone])
+
+  // Обработка бонуса реферала
+  const processReferralBonus = (referrerId) => {
+    const referrerPhone = localStorage.getItem('legend_phone_' + referrerId)
+    if (referrerPhone) {
+      // У пригласившего есть номер - начисляем бонус
+      localStorage.setItem('legend_referrer_id', referrerId)
+      console.log('Referral bonus approved for:', referrerId)
+      showAlert('✓ Реферальный бонус активирован!')
+    } else {
+      console.log('Referrer has no phone - bonus pending')
+    }
+  }
+
+  // Обработка подтверждения номера приглашенным
+  const handlePhoneVerified = () => {
+    const pendingReferrer = localStorage.getItem('legend_pending_referrer')
+    if (pendingReferrer) {
+      processReferralBonus(pendingReferrer)
+      localStorage.removeItem('legend_pending_referrer')
+      setShowPhoneModal(false)
+      setHasPhone(true)
+    }
+  }
 
   const BOT_USERNAME = 'LegendaBarber_Bot'
   const referralLink = `https://t.me/${BOT_USERNAME}?start=ref_${user?.id || '123456789'}`
 
   const handleInvite = () => {
+    if (!hasPhone) {
+      showAlert('❌ Требуется подтвердить номер телефона перед приглашением друзей')
+      return
+    }
     const text = `🎭 Присоединяйся к ЛЕГЕНДЕ — закрытому мужскому клубу премиум класса.\n\nПолучи приватную ссылку и стань членом клуба прямо в Telegram!\n\n💎 Привилегии: персональный мастер, цифровой паспорт стиля, рефпрограмма.`
     shareLink(referralLink, text)
   }
@@ -79,12 +122,28 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
         </button>
       </div>
 
+      {/* Phone Verification Warning */}
+      {!hasPhone && (
+        <div className="card-premium bg-red-900/20 border-red-900/50">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="text-sm text-red-400 font-bold">Требуется подтверждение номера</p>
+              <p className="text-xs text-legend-light/60">Для приглашения друзей подтвердите российский номер в Настройках</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invite Button */}
       <button
         onClick={handleInvite}
-        className="w-full card-premium bg-gradient-to-r from-legend-brass/20 to-legend-gold/20 border border-legend-gold pressable hover:shadow-[0_0_30px_rgba(198,169,107,0.4)]"
+        disabled={!hasPhone}
+        className={`w-full card-premium bg-gradient-to-r from-legend-brass/20 to-legend-gold/20 border border-legend-gold pressable hover:shadow-[0_0_30px_rgba(198,169,107,0.4)] ${!hasPhone ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
-        <p className="text-center text-lg font-serif font-bold text-legend-gold">Пригласить друга</p>
+        <p className="text-center text-lg font-serif font-bold text-legend-gold">
+          {hasPhone ? 'Пригласить друга' : 'Подтвердите номер для приглашений'}
+        </p>
       </button>
 
       {/* Stats */}
@@ -167,6 +226,45 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
           Каждый приглашённый друг получает скидку 10% на первую услугу. Ты получаешь бонусы и повышаешь свой уровень в клубе. Win-win! 🎭
         </p>
       </div>
+
+      {/* Phone Verification Modal for Invited Users */}
+      {showPhoneModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="card-premium max-w-sm w-full border-legend-gold">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-legend-gold/20 flex items-center justify-center text-3xl">
+                🎁
+              </div>
+              <p className="text-lg font-serif font-bold text-legend-gold mb-2">Реферальный бонус!</p>
+              <p className="text-sm text-legend-light/80">
+                Вы пришли по приглашению друга. Для активации бонуса (+100 ₽ другу) подтвердите российский номер телефона.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <a 
+                href="#/settings"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setShowPhoneModal(false)
+                  // Перенаправляем на страницу настроек
+                  window.location.hash = 'settings'
+                }}
+                className="block w-full card-premium bg-gradient-to-r from-legend-brass/20 to-legend-gold/20 border border-legend-gold text-center py-3"
+              >
+                <span className="text-legend-gold font-bold">Подтвердить номер →</span>
+              </a>
+              
+              <button
+                onClick={() => setShowPhoneModal(false)}
+                className="w-full text-xs text-legend-light/40 hover:text-legend-light py-2"
+              >
+                Пропустить (бонус не будет начислен)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

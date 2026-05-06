@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
 
-export default function PhoneVerification() {
-  const { requestPhoneNumber, getSavedPhone, validateRussianPhone, showAlert } = useTelegramApp()
+export default function PhoneVerification({ onVerified }) {
+  const { requestPhoneNumber, getSavedPhone, validateRussianPhone, showAlert, user } = useTelegramApp()
   const [savedPhone, setSavedPhone] = useState(null)
   const [manualPhone, setManualPhone] = useState('')
   const [isVerified, setIsVerified] = useState(false)
@@ -16,6 +16,27 @@ export default function PhoneVerification() {
     }
   }, [getSavedPhone])
 
+  // Сохранение номера с ID пользователя для реферальной системы
+  const savePhoneWithUserId = (phone) => {
+    localStorage.setItem('legend_phone', phone)
+    // Сохраняем привязку номера к ID пользователя для рефералов
+    if (user?.id) {
+      localStorage.setItem(`legend_phone_${user.id}`, phone)
+    }
+    
+    // Проверяем есть ли ожидающий реферальный бонус
+    const pendingReferrer = localStorage.getItem('legend_pending_referrer')
+    if (pendingReferrer) {
+      // Пригласивший получит бонус
+      showAlert(`✓ Номер подтвержден! Бонус начислен пригласившему.`)
+      localStorage.removeItem('legend_pending_referrer')
+      // Вызываем callback если есть
+      if (onVerified) onVerified()
+    } else {
+      showAlert(`✓ Номер подтвержден: ${phone}`)
+    }
+  }
+
   // Запрос номера через Telegram
   const handleRequestPhone = async () => {
     const result = await requestPhoneNumber()
@@ -23,7 +44,7 @@ export default function PhoneVerification() {
     if (result.success && result.isRussian) {
       setSavedPhone(result.phone)
       setIsVerified(true)
-      showAlert(`✓ Номер подтвержден: ${result.phone}`)
+      savePhoneWithUserId(result.phone)
     } else if (!result.success && result.error === 'Not Russian number') {
       // Иностранный номер - показываем ошибку
       showAlert('❌ Принимаются только российские номера (+7)')
@@ -39,11 +60,10 @@ export default function PhoneVerification() {
     const validation = validateRussianPhone(manualPhone)
     
     if (validation.valid) {
-      localStorage.setItem('legend_phone', validation.normalized)
+      savePhoneWithUserId(validation.normalized)
       setSavedPhone(validation.normalized)
       setIsVerified(true)
       setManualPhone('')
-      showAlert(`✓ Номер сохранен: ${validation.normalized}`)
     } else {
       showAlert(`❌ ${validation.error}`)
     }

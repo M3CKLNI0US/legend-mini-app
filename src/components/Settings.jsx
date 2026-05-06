@@ -59,7 +59,7 @@ export default function Settings({ user }) {
       </div>
 
       {/* Phone Verification */}
-      <PhoneVerification />
+      <PhoneVerification onVerified={() => showAlert('✓ Номер подтвержден! Теперь вы можете приглашать друзей.')} />
 
       {/* Notifications */}
       <div className="card-premium space-y-3">
