@@ -15,9 +15,30 @@ export default function App() {
   const [userLevel, setUserLevel] = useState('newbie') // newbie, guardian, elder, legend
   const [referralCount, setReferralCount] = useState(0)
 
+  // Загрузка данных из localStorage при старте
+  useEffect(() => {
+    const storedCount = localStorage.getItem('legend_referral_count')
+    if (storedCount) {
+      setReferralCount(parseInt(storedCount, 10))
+    }
+  }, [])
+
+  // Обновление уровня при изменении количества рефералов
+  useEffect(() => {
+    let newLevel = 'newbie'
+    if (referralCount >= 30) {
+      newLevel = 'legend'
+    } else if (referralCount >= 15) {
+      newLevel = 'elder'
+    } else if (referralCount >= 5) {
+      newLevel = 'guardian'
+    }
+    setUserLevel(newLevel)
+    console.log('User level updated:', newLevel, 'Referrals:', referralCount)
+  }, [referralCount])
+
   useEffect(() => {
     if (user && user.id) {
-      // Здесь можно загрузить данные пользователя с сервера
       console.log('User ID:', user.id)
     }
   }, [user])
