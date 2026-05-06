@@ -114,21 +114,103 @@ export function useTelegramApp() {
         // Локальный режим - эмулируем
         const testPhone = '+79001234567'
         localStorage.setItem('legend_phone', testPhone)
-        resolve({ success: true, phone: testPhone })
+        resolve({ success: true, phone: testPhone, isRussian: true })
         return
       }
 
-      // Используем нативный запрос контакта Telegram
-      webApp.requestContact((sent, event) => {
-        if (sent && event && event.response) {
-          const phone = event.response.contact?.phone_number
+      // Показываем popup с запросом контакта через Telegram
+      showPopup({
+        title: '📱 Подтверждение номера',
+        message: 'Для участия в клубе требуется российский номер телефона. Нажмите кнопку ниже, чтобы поделиться контактом.',
+        buttons: [
+          {
+            id: 'request_contact',
+            type: 'default',
+            text: '📱 Поделиться контактом'
+          },
+          {
+            id: 'cancel',
+            type: 'destructive',
+            text: 'Отмена'
+          }
+        ]
+      }, (buttonId) => {
+        if (buttonId === 'request_contact') {
+          // Запрашиваем контакт через Telegram
+          try {
+            webApp.requestContact((sent, event) => {
+              console.log('Contact request result:', sent, event)
+              
+              if (sent && event?.response) {
+                const contact = event.response.contact
+                if (contact && contact.phone_number) {
+                  const phone = contact.phone_number
+                  
+                  // Проверяем что номер российский (+7 или 8)
+                  const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
+                  
+                  if (isRussian) {
+                    // Нормализуем номер к формату +7...
+                    let normalizedPhone = phone
+                    if (phone.startsWith('8') && phone.length === 11) {
+                      normalizedPhone = '+7' + phone.slice(1)
+                    } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
+                      normalizedPhone = '+7' + phone.slice(1)
+                    }
+                    
+                    localStorage.setItem('legend_phone', normalizedPhone)
+                    resolve({ success: true, phone: normalizedPhone, isRussian: true })
+                  } else {
+                    showAlert('❌ Требуется российский номер телефона (+7...)')
+                    resolve({ success: false, phone, isRussian: false, error: 'Not Russian number' })
+                  }
+                } else {
+                  resolve({ success: false, error: 'No phone number received' })
+                }
+              } else if (sent === false) {
+                // Пользователь отказался
+                resolve({ success: false, error: 'User declined' })
+              } else {
+                // Пробуем альтернативный способ - через showPopup с запросом телефона
+                requestPhoneAlternative().then(resolve)
+              }
+            })
+          } catch (e) {
+            console.error('Error requesting contact:', e)
+            // Запасной вариант
+            requestPhoneAlternative().then(resolve)
+          }
+        } else {
+          resolve({ success: false, error: 'User declined' })
+        }
+      })
+    })
+  }
+
+  // Альтернативный способ запроса номера через MainButton
+  const requestPhoneAlternative = () => {
+    return new Promise((resolve) => {
+      if (!webApp?.MainButton) {
+        resolve({ success: false, error: 'MainButton not available' })
+        return
+      }
+      
+      // Настраиваем MainButton для запроса контакта
+      webApp.MainButton.setText('📱 Поделиться номером')
+      webApp.MainButton.show()
+      
+      const originalOnClick = webApp.MainButton.onClick
+      
+      webApp.MainButton.onClick(() => {
+        webApp.requestContact((sent, event) => {
+          webApp.MainButton.hide()
+          webApp.MainButton.onClick(originalOnClick || (() => {}))
           
-          if (phone) {
-            // Проверяем что номер российский (+7 или 8)
+          if (sent && event?.response?.contact?.phone_number) {
+            const phone = event.response.contact.phone_number
             const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
             
             if (isRussian) {
-              // Нормализуем номер к формату +7...
               let normalizedPhone = phone
               if (phone.startsWith('8') && phone.length === 11) {
                 normalizedPhone = '+7' + phone.slice(1)
@@ -140,15 +222,20 @@ export function useTelegramApp() {
               resolve({ success: true, phone: normalizedPhone, isRussian: true })
             } else {
               showAlert('❌ Требуется российский номер телефона (+7...)')
-              resolve({ success: false, phone, isRussian: false, error: 'Not Russian number' })
+              resolve({ success: false, error: 'Not Russian number' })
             }
           } else {
-            resolve({ success: false, error: 'No phone received' })
+            resolve({ success: false, error: 'User declined' })
           }
-        } else {
-          resolve({ success: false, error: 'User declined' })
-        }
+        })
       })
+      
+      showAlert('Нажмите кнопку внизу экрана, чтобы поделиться номером')
+      
+      // Автоматически скрываем кнопку через 30 секунд
+      setTimeout(() => {
+        webApp.MainButton.hide()
+      }, 30000)
     })
   }
 

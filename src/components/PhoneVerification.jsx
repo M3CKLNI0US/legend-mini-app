@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
 
 export default function PhoneVerification({ onVerified }) {
-  const { requestPhoneNumber, getSavedPhone, validateRussianPhone, showAlert, user } = useTelegramApp()
+  const { requestPhoneNumber, getSavedPhone, showAlert, user } = useTelegramApp()
   const [savedPhone, setSavedPhone] = useState(null)
-  const [manualPhone, setManualPhone] = useState('')
   const [isVerified, setIsVerified] = useState(false)
 
   // Загрузка сохраненного номера при монтировании
@@ -53,25 +52,12 @@ export default function PhoneVerification({ onVerified }) {
     }
   }
 
-  // Ручной ввод номера
-  const handleManualSubmit = (e) => {
-    e.preventDefault()
-    
-    const validation = validateRussianPhone(manualPhone)
-    
-    if (validation.valid) {
-      savePhoneWithUserId(validation.normalized)
-      setSavedPhone(validation.normalized)
-      setIsVerified(true)
-      setManualPhone('')
-    } else {
-      showAlert(`❌ ${validation.error}`)
-    }
-  }
-
   // Очистка номера
   const handleClearPhone = () => {
     localStorage.removeItem('legend_phone')
+    if (user?.id) {
+      localStorage.removeItem(`legend_phone_${user.id}`)
+    }
     setSavedPhone(null)
     setIsVerified(false)
     showAlert('Номер удален')
@@ -107,8 +93,7 @@ export default function PhoneVerification({ onVerified }) {
       <div className="card-premium bg-legend-wenge/20 border-legend-brass/50">
         <p className="text-sm text-legend-gold font-bold mb-2">📱 Подтверждение номера</p>
         <p className="text-xs text-legend-light/70">
-          Для записи к мастеру требуется российский номер телефона. 
-          Мы отправим вам SMS с подтверждением.
+          Для записи к мастеру и участия в реферальной программе требуется российский номер телефона.
         </p>
       </div>
 
@@ -120,53 +105,16 @@ export default function PhoneVerification({ onVerified }) {
         <div className="flex items-center justify-center gap-2">
           <span className="text-xl">📱</span>
           <p className="text-center text-lg font-serif font-bold text-legend-gold">
-            Поделиться контактом
+            Подтвердить номер через Telegram
           </p>
         </div>
         <p className="text-xs text-legend-light/60 text-center mt-1">
-          Безопасный запрос через Telegram
+          Нажмите, чтобы поделиться контактом
         </p>
       </button>
 
-      {/* Или вручную */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-legend-wenge/30"></div>
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-legend-black px-2 text-xs text-legend-light/40">или введите вручную</span>
-        </div>
-      </div>
-
-      {/* Ручной ввод */}
-      <form onSubmit={handleManualSubmit} className="space-y-3">
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-legend-gold font-bold">+7</span>
-          <input
-            type="tel"
-            value={manualPhone}
-            onChange={(e) => setManualPhone(e.target.value.replace(/\D/g, ''))}
-            placeholder="(900) 123-45-67"
-            maxLength={10}
-            className="w-full card-premium bg-legend-black border border-legend-wenge pl-12 pr-4 py-3 text-legend-light rounded outline-none focus:border-legend-gold"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={manualPhone.length < 10}
-          className={`w-full card-premium border transition-all ${
-            manualPhone.length >= 10 
-              ? 'border-legend-gold text-legend-gold hover:bg-legend-gold/10' 
-              : 'border-legend-wenge/30 text-legend-light/30 cursor-not-allowed'
-          }`}
-        >
-          Подтвердить номер
-        </button>
-      </form>
-
-      {/* Примеры форматов */}
       <p className="text-xs text-legend-light/40 text-center">
-        Примеры: +7 900 123-45-67, 8 (900) 1234567
+        Только российские номера (+7). Иностранные номера не принимаются.
       </p>
     </div>
   )
