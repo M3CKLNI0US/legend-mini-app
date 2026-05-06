@@ -22,7 +22,25 @@ export function useTelegramApp() {
 
       // Получи информацию о пользователе
       if (tg.initData && tg.initDataUnsafe) {
-        setUser(tg.initDataUnsafe.user || null)
+        const userData = tg.initDataUnsafe.user
+        setUser(userData || null)
+        
+        // Автоматически регистрируем пользователя в системе
+        if (userData?.id) {
+          const userKey = `legend_user_${userData.id}`
+          const existing = JSON.parse(localStorage.getItem(userKey) || '{}')
+          
+          localStorage.setItem(userKey, JSON.stringify({
+            name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Без имени',
+            username: userData.username || null,
+            id: userData.id,
+            level: existing.level || 'newbie',
+            status: existing.status || 'active',
+            referrals: existing.referrals || 0,
+            joinedAt: existing.joinedAt || new Date().toISOString(),
+            lastVisit: new Date().toISOString()
+          }))
+        }
       }
 
       // Расширь приложение на весь экран
@@ -41,13 +59,27 @@ export function useTelegramApp() {
     } else {
       // Локальный режим (вне Telegram) - эмулируем пользователя
       console.log('Running in local mode (outside Telegram)')
-      setUser({
+      const testUser = {
         id: 123456789,
         first_name: 'Тест',
         last_name: 'Пользователь',
         username: 'test_user',
         photo_url: null
-      })
+      }
+      setUser(testUser)
+      
+      // Сохраняем тестового пользователя
+      localStorage.setItem('legend_user_123456789', JSON.stringify({
+        name: 'Тест Пользователь',
+        username: 'test_user',
+        id: 123456789,
+        level: 'legend',
+        status: 'active',
+        referrals: 5,
+        joinedAt: new Date().toISOString(),
+        lastVisit: new Date().toISOString()
+      }))
+      
       setIsReady(true)
     }
   }, [])
