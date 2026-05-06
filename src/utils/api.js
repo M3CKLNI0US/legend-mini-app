@@ -152,8 +152,8 @@ export const formatTime = (time) => {
  * Отправка уведомления админу о новой записи
  */
 export const notifyAdminBooking = async (bookingData) => {
-  const BOT_TOKEN = 'YOUR_BOT_TOKEN' // Замени на токен от @BotFather
-  const ADMIN_CHAT_ID = 'YOUR_ADMIN_ID' // Замени на ID админа (узнать через @userinfobot)
+  const BOT_TOKEN = '8425892844:AAH77_x1DLrlOGF2IIoqRyMFaOHADotlpKo'
+  const ADMIN_CHAT_ID = '1100054796'
   
   const message = `
 🎭 <b>НОВАЯ ЗАПИСЬ — ЛЕГЕНДА</b>
