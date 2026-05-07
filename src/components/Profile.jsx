@@ -61,9 +61,16 @@ export default function Profile({ user, userLevel: initialLevel, referralCount: 
   const currentLevelIndex = levelTiers.findIndex(t => t.id === userLevel)
   const currentLevelTier = levelTiers[currentLevelIndex]
 
-  // Генерируй уникальный номер карты
-  const cardNumber = `${String(user?.id || '0000').slice(-4).padStart(4, '0')}`
-  const cardNumberFormatted = `${cardNumber.slice(0, 2)}-${cardNumber.slice(2)}`
+  // Генерируй уникальный номер карты (0000-9999)
+  const [cardNumber, setCardNumber] = useState('0000')
+
+  useEffect(() => {
+    if (user?.id) {
+      // Используем последние 4 цифры ID, но если больше 9999 - берем остаток от деления
+      const last4 = parseInt(String(user.id).slice(-4)) % 10000
+      setCardNumber(String(last4).padStart(4, '0'))
+    }
+  }, [user?.id])
 
   return (
     <div className="p-4 pb-32 space-y-6">
@@ -81,7 +88,7 @@ export default function Profile({ user, userLevel: initialLevel, referralCount: 
 
           <div>
             <p className="text-legend-light/60 text-xs mb-2">НОМЕР КАРТЫ</p>
-            <p className="text-2xl font-serif font-bold tracking-widest">{cardNumberFormatted}</p>
+            <p className="text-2xl font-serif font-bold tracking-widest">{cardNumber}</p>
           </div>
         </div>
 
@@ -103,7 +110,7 @@ export default function Profile({ user, userLevel: initialLevel, referralCount: 
         </div>
         <div className="card-premium text-center">
           <p className="text-legend-gold text-2xl font-serif font-bold">{currentLevelTier.bonus}</p>
-          <p className="text-xs text-legend-light/60">Бонус</p>
+          <p className="text-xs text-legend-light/60">{currentLevelTier.name}</p>
         </div>
       </div>
 

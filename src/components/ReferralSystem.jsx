@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
+import { subscribeToUser, getUserFromFirebase, saveUserToFirebase } from '../firebase'
 
 export default function ReferralSystem({ referralCount, setReferralCount }) {
   const { shareLink, showAlert, user, getSavedPhone } = useTelegramApp()
@@ -8,22 +9,29 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
   const [hasPhone, setHasPhone] = useState(false)
   const [showPhoneModal, setShowPhoneModal] = useState(false)
   const [pendingReferrerId, setPendingReferrerId] = useState(null)
+  const [firebaseReferralCount, setFirebaseReferralCount] = useState(0)
 
-  // Загрузка данных из localStorage
+  // Синхронизация с Firebase
   useEffect(() => {
-    const stored = localStorage.getItem('legend_referrals')
-    const storedCount = localStorage.getItem('legend_referral_count')
-    if (stored) {
-      setReferredUsers(JSON.parse(stored))
+    if (user?.id) {
+      // Подписываемся на изменения пользователя
+      const unsubscribe = subscribeToUser(user.id, (userData) => {
+        if (userData) {
+          setFirebaseReferralCount(userData.referrals || 0)
+          // Обновляем referralCount если передан setReferralCount
+          if (setReferralCount) {
+            setReferralCount(userData.referrals || 0)
+          }
+        }
+      })
+      
+      // Проверяем номер телефона
+      const phone = getSavedPhone()
+      setHasPhone(!!phone)
+      
+      return () => unsubscribe()
     }
-    if (storedCount) {
-      setReferralCount(parseInt(storedCount, 10))
-    }
-    
-    // Проверяем есть ли у пользователя подтвержденный номер
-    const phone = getSavedPhone()
-    setHasPhone(!!phone)
-  }, [setReferralCount, getSavedPhone])
+  }, [user?.id, setReferralCount, getSavedPhone])
 
   // Обработка входящего реферального кода
   useEffect(() => {
