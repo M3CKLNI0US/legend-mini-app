@@ -158,72 +158,62 @@ export function useTelegramApp() {
         return
       }
 
-      // Показываем popup с запросом контакта через Telegram
-      showPopup({
-        title: '📱 Подтверждение номера',
-        message: 'Для участия в клубе требуется российский номер телефона. Нажмите кнопку ниже, чтобы поделиться контактом.',
-        buttons: [
-          {
-            id: 'request_contact',
-            type: 'default',
-            text: '📱 Поделиться контактом'
-          },
-          {
-            id: 'cancel',
-            type: 'destructive',
-            text: 'Отмена'
-          }
-        ]
-      }, (buttonId) => {
-        if (buttonId === 'request_contact') {
-          // Запрашиваем контакт через Telegram
-          try {
-            webApp.requestContact((sent, event) => {
-              console.log('Contact request result:', sent, event)
-              
-              if (sent && event?.response) {
-                const contact = event.response.contact
-                if (contact && contact.phone_number) {
-                  const phone = contact.phone_number
-                  
-                  // Проверяем что номер российский (+7 или 8)
-                  const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
-                  
-                  if (isRussian) {
-                    // Нормализуем номер к формату +7...
-                    let normalizedPhone = phone
-                    if (phone.startsWith('8') && phone.length === 11) {
-                      normalizedPhone = '+7' + phone.slice(1)
-                    } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
-                      normalizedPhone = '+7' + phone.slice(1)
-                    }
-                    
-                    localStorage.setItem('legend_phone', normalizedPhone)
-                    resolve({ success: true, phone: normalizedPhone, isRussian: true })
-                  } else {
-                    showAlert('❌ Требуется российский номер телефона (+7...)')
-                    resolve({ success: false, phone, isRussian: false, error: 'Not Russian number' })
-                  }
-                } else {
-                  resolve({ success: false, error: 'No phone number received' })
-                }
-              } else if (sent === false) {
-                // Пользователь отказался
-                resolve({ success: false, error: 'User declined' })
-              } else {
-                // Пробуем альтернативный способ - через showPopup с запросом телефона
-                requestPhoneAlternative().then(resolve)
+      // Проверяем поддержку requestContact
+      if (!webApp.requestContact) {
+        showAlert('❌ Ваша версия Telegram не поддерживает запрос контакта. Обновите Telegram.')
+        resolve({ success: false, error: 'requestContact not supported' })
+        return
+      }
+
+      // Сразу запрашиваем контакт через Telegram (без промежуточного popup)
+      try {
+        webApp.requestContact((sent, event) => {
+          console.log('Contact request result:', { sent, event })
+          
+          // sent = true/false - разрешил ли пользователь доступ
+          // event содержит response с contact или ошибку
+          
+          if (sent === true && event?.response?.contact) {
+            const contact = event.response.contact
+            const phone = contact.phone_number
+            
+            if (!phone) {
+              resolve({ success: false, error: 'No phone number in contact' })
+              return
+            }
+            
+            // Проверяем что номер российский (+7 или 8)
+            const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
+            
+            if (isRussian) {
+              // Нормализуем номер к формату +7...
+              let normalizedPhone = phone
+              if (phone.startsWith('8') && phone.length === 11) {
+                normalizedPhone = '+7' + phone.slice(1)
+              } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
+                normalizedPhone = '+7' + phone.slice(1)
               }
-            })
-          } catch (e) {
-            console.error('Error requesting contact:', e)
-            // Запасной вариант
-            requestPhoneAlternative().then(resolve)
+              
+              localStorage.setItem('legend_phone', normalizedPhone)
+              resolve({ success: true, phone: normalizedPhone, isRussian: true })
+            } else {
+              showAlert('❌ Требуется российский номер телефона (+7...)')
+              resolve({ success: false, phone, isRussian: false, error: 'Not Russian number' })
+            }
+          } else if (sent === false) {
+            // Пользователь отказался
+            resolve({ success: false, error: 'User declined' })
+          } else {
+            // Неизвестная ошибка или старая версия API
+            console.error('Unexpected requestContact result:', sent, event)
+            resolve({ success: false, error: 'Unknown error' })
           }
-        } else {
-          resolve({ success: false, error: 'User declined' })
-        }
-      })
+        })
+      } catch (e) {
+        console.error('Error requesting contact:', e)
+        showAlert('❌ Ошибка при запросе контакта: ' + e.message)
+        resolve({ success: false, error: e.message })
+      }
     })
   }
 
