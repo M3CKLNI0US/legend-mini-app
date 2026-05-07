@@ -170,4 +170,16 @@ export const subscribeToUsers = (callback) => {
   })
 }
 
+// Subscribe to single user (real-time)
+export const subscribeToUser = (userId, callback) => {
+  const userRef = ref(database, `users/${userId}`)
+  return onValue(userRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback({ id: userId, ...snapshot.val() })
+    } else {
+      callback(null)
+    }
+  })
+}
+
 export default app

@@ -56,6 +56,28 @@ export default function AdminPanel() {
     saveUser(userId, { level: newLevel, levelChangedAt: new Date().toISOString() })
   }
 
+  // Изменение количества рефералов
+  const changeReferrals = (userId, newCount) => {
+    const count = parseInt(newCount, 10) || 0
+    saveUser(userId, { referrals: count, referralsUpdatedAt: new Date().toISOString() })
+  }
+
+  // Добавить реферал
+  const addReferral = (userId) => {
+    const user = users.find(u => u.id === userId)
+    const currentCount = user?.referrals || 0
+    changeReferrals(userId, currentCount + 1)
+  }
+
+  // Убрать реферал
+  const removeReferral = (userId) => {
+    const user = users.find(u => u.id === userId)
+    const currentCount = user?.referrals || 0
+    if (currentCount > 0) {
+      changeReferrals(userId, currentCount - 1)
+    }
+  }
+
   // Фильтрация пользователей
   const filteredUsers = users.filter(u => {
     if (filter === 'active') return u.status === 'active'
@@ -231,6 +253,43 @@ export default function AdminPanel() {
                         {level === 'legend' && '◆◆◆ Легенда'}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Referral Management */}
+                <div className="space-y-2">
+                  <p className="text-xs text-legend-gold font-bold">Управление рефералами:</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeReferral(userData.id)
+                      }}
+                      className="w-10 h-10 bg-red-900/20 border border-red-600 text-red-400 rounded flex items-center justify-center text-lg"
+                      disabled={userData.referrals <= 0}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={userData.referrals || 0}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        changeReferrals(userData.id, e.target.value)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 h-10 bg-legend-deep border border-legend-wenge rounded text-center text-legend-gold font-bold"
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        addReferral(userData.id)
+                      }}
+                      className="w-10 h-10 bg-green-900/20 border border-green-600 text-green-400 rounded flex items-center justify-center text-lg"
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
 

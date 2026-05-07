@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { subscribeToUser } from '../firebase'
 
 const levelTiers = [
   {
@@ -39,8 +40,23 @@ const levelTiers = [
   }
 ]
 
-export default function Profile({ user, userLevel, referralCount }) {
+export default function Profile({ user, userLevel: initialLevel, referralCount: initialReferrals }) {
   const [showDetails, setShowDetails] = useState(null)
+  const [userLevel, setUserLevel] = useState(initialLevel || 'newbie')
+  const [referralCount, setReferralCount] = useState(initialReferrals || 0)
+
+  // Подписка на изменения пользователя в Firebase
+  useEffect(() => {
+    if (user?.id) {
+      const unsubscribe = subscribeToUser(user.id, (userData) => {
+        if (userData) {
+          setUserLevel(userData.level || 'newbie')
+          setReferralCount(userData.referrals || 0)
+        }
+      })
+      return () => unsubscribe()
+    }
+  }, [user?.id])
 
   const currentLevelIndex = levelTiers.findIndex(t => t.id === userLevel)
   const currentLevelTier = levelTiers[currentLevelIndex]
