@@ -150,7 +150,10 @@ export function useTelegramApp() {
   // Запрос контакта (телефона) с проверкой на российский номер
   const requestPhoneNumber = async () => {
     return new Promise((resolve) => {
+      console.log('Starting phone verification...')
+      
       if (!webApp) {
+        console.log('No webApp - running in local mode')
         // Локальный режим - эмулируем
         const testPhone = '+79001234567'
         localStorage.setItem('legend_phone', testPhone)
@@ -158,17 +161,30 @@ export function useTelegramApp() {
         return
       }
 
+      console.log('WebApp version:', webApp.version)
+      console.log('WebApp platform:', webApp.platform)
+
       // Проверяем поддержку requestContact
       if (!webApp.requestContact) {
+        console.error('requestContact not available')
         showAlert('❌ Ваша версия Telegram не поддерживает запрос контакта. Обновите Telegram.')
         resolve({ success: false, error: 'requestContact not supported' })
         return
       }
 
+      console.log('Calling requestContact...')
+
       // Сразу запрашиваем контакт через Telegram (без промежуточного popup)
       try {
         webApp.requestContact((sent, event) => {
-          console.log('Contact request result:', { sent, event })
+          console.log('Contact request callback:', { sent, event })
+          console.log('Event type:', typeof event)
+          console.log('Event keys:', event ? Object.keys(event) : 'null')
+          
+          if (event?.response) {
+            console.log('Response:', event.response)
+            console.log('Contact:', event.response.contact)
+          }
           
           // sent = true/false - разрешил ли пользователь доступ
           // event содержит response с contact или ошибку
@@ -177,6 +193,8 @@ export function useTelegramApp() {
             const contact = event.response.contact
             const phone = contact.phone_number
             
+            console.log('Got phone:', phone)
+            
             if (!phone) {
               resolve({ success: false, error: 'No phone number in contact' })
               return
@@ -184,6 +202,8 @@ export function useTelegramApp() {
             
             // Проверяем что номер российский (+7 или 8)
             const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
+            
+            console.log('Is Russian:', isRussian, 'Phone:', phone)
             
             if (isRussian) {
               // Нормализуем номер к формату +7...

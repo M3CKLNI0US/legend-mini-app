@@ -49,15 +49,27 @@ export default function PhoneVerification({ onVerified }) {
   const handleRequestPhone = async () => {
     const result = await requestPhoneNumber()
     
+    console.log('Phone verification result:', result)
+    
     if (result.success && result.isRussian) {
       setSavedPhone(result.phone)
       setIsVerified(true)
-      savePhoneWithUserId(result.phone)
+      
+      // Сохраняем в Firebase и ждем завершения
+      const saved = await savePhoneWithUserId(result.phone)
+      console.log('Phone saved to Firebase:', saved)
+      
+      if (saved && onVerified) {
+        onVerified()
+      }
     } else if (!result.success && result.error === 'Not Russian number') {
       // Иностранный номер - показываем ошибку
       showAlert('❌ Принимаются только российские номера (+7)')
     } else if (!result.success && result.error === 'User declined') {
       showAlert('❌ Вы отказались предоставить номер')
+    } else {
+      console.error('Phone verification failed:', result)
+      showAlert('❌ Не удалось подтвердить номер. Попробуйте еще раз.')
     }
   }
 
