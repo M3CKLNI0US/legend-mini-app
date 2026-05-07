@@ -1,11 +1,30 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
+import { getUserFromFirebase } from '../firebase'
 import PhoneVerification from './PhoneVerification'
 
 export default function Settings({ user }) {
   const { showAlert, webApp } = useTelegramApp()
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [smsEnabled, setSmsEnabled] = useState(false)
+  const [phoneVerified, setPhoneVerified] = useState(false)
+  const [userPhone, setUserPhone] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  // Проверка статуса верификации телефона
+  useEffect(() => {
+    const checkPhoneStatus = async () => {
+      if (user?.id) {
+        const userData = await getUserFromFirebase(user.id)
+        if (userData) {
+          setPhoneVerified(userData.phoneVerified || false)
+          setUserPhone(userData.phone || null)
+        }
+      }
+      setLoading(false)
+    }
+    checkPhoneStatus()
+  }, [user])
 
   const handleToggle = (state, setState, label) => {
     setState(!state)
@@ -24,6 +43,11 @@ export default function Settings({ user }) {
     if (webApp) {
       webApp.close()
     }
+  }
+
+  const handlePhoneVerified = () => {
+    setPhoneVerified(true)
+    showAlert('✓ Номер подтвержден! Теперь вы можете приглашать друзей.')
   }
 
   return (
@@ -58,8 +82,25 @@ export default function Settings({ user }) {
         </div>
       </div>
 
-      {/* Phone Verification */}
-      <PhoneVerification onVerified={() => showAlert('✓ Номер подтвержден! Теперь вы можете приглашать друзей.')} />
+      {/* Phone Verification - показываем только если телефон не подтвержден */}
+      {!loading && !phoneVerified && (
+        <PhoneVerification onVerified={handlePhoneVerified} />
+      )}
+
+      {/* Phone Verified Status - показываем если телефон подтвержден */}
+      {phoneVerified && (
+        <div className="card-premium bg-gradient-to-br from-green-900/30 to-legend-gold/20 border-green-500/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-xl">
+              ✓
+            </div>
+            <div>
+              <p className="text-sm text-green-400 font-bold">Телефон подтвержден</p>
+              <p className="text-xs text-legend-light/60">{userPhone || 'Номер сохранен'}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notifications */}
       <div className="card-premium space-y-3">

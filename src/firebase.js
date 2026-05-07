@@ -84,9 +84,16 @@ export const deleteUserFromFirebase = async (userId) => {
 // Phone verification operations
 export const savePhoneToFirebase = async (userId, phone) => {
   try {
+    // Сохраняем в отдельную ветку phones
     await set(ref(database, `phones/${userId}`), {
       phone,
       verifiedAt: new Date().toISOString()
+    })
+    // Обновляем статус верификации в профиле пользователя
+    await update(ref(database, `users/${userId}`), {
+      phoneVerified: true,
+      phone: phone,
+      phoneVerifiedAt: new Date().toISOString()
     })
     return true
   } catch (error) {
