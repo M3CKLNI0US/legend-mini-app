@@ -36,12 +36,12 @@ export default function PhoneVerification({ onVerified }) {
     const pendingReferrer = localStorage.getItem('legend_pending_referrer')
     if (pendingReferrer) {
       // Пригласивший получит бонус
-      showAlert(`✓ Номер подтвержден! Бонус начислен пригласившему.`)
+      showAlert(`🎉 Ты молодец! Номер подтвержден! Бонус начислен пригласившему.`)
       localStorage.removeItem('legend_pending_referrer')
       // Вызываем callback если есть
       if (onVerified) onVerified()
     } else {
-      showAlert(`✓ Номер подтвержден: ${phone}`)
+      showAlert(`🎉 Ты молодец! Номер успешно подтвержден!\n\nТеперь ты можешь записываться к мастеру и участвовать в реферальной программе.`)
     }
   }
 
@@ -72,14 +72,15 @@ export default function PhoneVerification({ onVerified }) {
 
   if (isVerified && savedPhone) {
     return (
-      <div className="card-premium border-legend-gold">
+      <div className="card-premium bg-gradient-to-br from-green-900/30 to-legend-gold/20 border-green-500/50">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-legend-gold/20 flex items-center justify-center text-legend-gold text-xl">
-              ✓
+            <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center text-2xl animate-pulse">
+              🎉
             </div>
             <div>
-              <p className="text-sm text-legend-gold font-bold">Номер подтвержден</p>
+              <p className="text-sm text-green-400 font-bold">Ты молодец!</p>
+              <p className="text-sm text-legend-gold font-medium">Номер подтвержден</p>
               <p className="text-xs text-legend-light/60">{savedPhone}</p>
             </div>
           </div>
@@ -90,6 +91,9 @@ export default function PhoneVerification({ onVerified }) {
             Изменить
           </button>
         </div>
+        <p className="text-xs text-green-400/80 mt-3 text-center">
+          ✓ Теперь ты можешь записываться к мастеру и приглашать друзей!
+        </p>
       </div>
     )
   }
