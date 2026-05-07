@@ -98,22 +98,6 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // Демо: добавить тестового реферала
-  const addDemoReferral = () => {
-    const newReferral = {
-      id: Date.now(),
-      name: `Реферал #${referralCount + 1}`,
-      date: new Date().toLocaleDateString('ru-RU'),
-      bonus: 100
-    }
-    const updated = [...referredUsers, newReferral]
-    setReferredUsers(updated)
-    setReferralCount(prev => prev + 1)
-    localStorage.setItem('legend_referrals', JSON.stringify(updated))
-    localStorage.setItem('legend_referral_count', String(referralCount + 1))
-    showAlert(`✓ Добавлен реферал! Бонус: +100 ₽`)
-  }
-
   return (
     <div className="p-4 pb-32 space-y-6">
       {/* Referral Link Card */}
@@ -219,14 +203,6 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
           ))}
         </div>
       )}
-
-      {/* Demo Button - для тестирования */}
-      <button
-        onClick={addDemoReferral}
-        className="w-full card-premium bg-legend-deep border border-dashed border-legend-brass/50 text-legend-brass text-sm py-3 hover:border-legend-gold hover:text-legend-gold transition-colors"
-      >
-        [ТЕСТ] Симулировать нового реферала
-      </button>
 
       {/* Info */}
       <div className="card-premium bg-legend-wenge/20 border-legend-brass/50">

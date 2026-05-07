@@ -78,6 +78,33 @@ export default function AdminPanel() {
     }
   }
 
+  // Установить телефон пользователю (ручное подтверждение)
+  const setUserPhone = (userId, phone) => {
+    if (!phone || phone.trim() === '') {
+      showAlert('❌ Введите номер телефона')
+      return
+    }
+    // Проверка на российский номер
+    const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
+    if (!isRussian) {
+      showAlert('❌ Требуется российский номер (+7...)')
+      return
+    }
+    // Нормализуем номер
+    let normalizedPhone = phone
+    if (phone.startsWith('8') && phone.length === 11) {
+      normalizedPhone = '+7' + phone.slice(1)
+    } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
+      normalizedPhone = '+7' + phone.slice(1)
+    }
+    
+    saveUser(userId, { 
+      phone: normalizedPhone, 
+      phoneVerified: true,
+      phoneVerifiedAt: new Date().toISOString()
+    })
+  }
+
   // Фильтрация пользователей
   const filteredUsers = users.filter(u => {
     if (filter === 'active') return u.status === 'active'
@@ -291,6 +318,41 @@ export default function AdminPanel() {
                       +
                     </button>
                   </div>
+                </div>
+
+                {/* Phone Management */}
+                <div className="space-y-2">
+                  <p className="text-xs text-legend-gold font-bold">Подтвердить телефон:</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="tel"
+                      placeholder="+79001234567"
+                      defaultValue={userData.phone || ''}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1 h-10 bg-legend-deep border border-legend-wenge rounded px-3 text-legend-gold text-sm"
+                      id={`phone-input-${userData.id}`}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        const input = document.getElementById(`phone-input-${userData.id}`)
+                        if (input) {
+                          setUserPhone(userData.id, input.value)
+                        }
+                      }}
+                      className="px-4 h-10 bg-green-900/20 border border-green-600 text-green-400 rounded text-sm"
+                    >
+                      ✓ Подтвердить
+                    </button>
+                  </div>
+                  {userData.phone && (
+                    <p className="text-xs text-green-400">
+                      ✓ Телефон подтвержден: {userData.phone}
+                    </p>
+                  )}
                 </div>
 
                 {/* Block/Unblock Actions */}
