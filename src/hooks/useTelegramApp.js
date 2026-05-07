@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { saveUserToFirebase, getUserFromFirebase, savePhoneToFirebase, getPhoneFromFirebase } from '../firebase'
 
 export function useTelegramApp() {
   const [user, setUser] = useState(null)
@@ -25,21 +26,28 @@ export function useTelegramApp() {
         const userData = tg.initDataUnsafe.user
         setUser(userData || null)
         
-        // Автоматически регистрируем пользователя в системе
+        // Автоматически регистрируем пользователя в Firebase
         if (userData?.id) {
-          const userKey = `legend_user_${userData.id}`
-          const existing = JSON.parse(localStorage.getItem(userKey) || '{}')
+          const registerUser = async () => {
+            // Проверяем существующего пользователя
+            const existingUser = await getUserFromFirebase(userData.id)
+            
+            const userRecord = {
+              name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Без имени',
+              username: userData.username || null,
+              id: userData.id,
+              level: existingUser?.level || 'newbie',
+              status: existingUser?.status || 'active',
+              referrals: existingUser?.referrals || 0,
+              joinedAt: existingUser?.joinedAt || new Date().toISOString(),
+              lastVisit: new Date().toISOString()
+            }
+            
+            await saveUserToFirebase(userRecord)
+            console.log('User registered in Firebase:', userData.id)
+          }
           
-          localStorage.setItem(userKey, JSON.stringify({
-            name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Без имени',
-            username: userData.username || null,
-            id: userData.id,
-            level: existing.level || 'newbie',
-            status: existing.status || 'active',
-            referrals: existing.referrals || 0,
-            joinedAt: existing.joinedAt || new Date().toISOString(),
-            lastVisit: new Date().toISOString()
-          }))
+          registerUser().catch(console.error)
         }
       }
 
@@ -68,8 +76,8 @@ export function useTelegramApp() {
       }
       setUser(testUser)
       
-      // Сохраняем тестового пользователя
-      localStorage.setItem('legend_user_123456789', JSON.stringify({
+      // Сохраняем тестового пользователя в Firebase
+      saveUserToFirebase({
         name: 'Тест Пользователь',
         username: 'test_user',
         id: 123456789,
@@ -78,7 +86,7 @@ export function useTelegramApp() {
         referrals: 5,
         joinedAt: new Date().toISOString(),
         lastVisit: new Date().toISOString()
-      }))
+      }).catch(console.error)
       
       setIsReady(true)
     }
@@ -250,7 +258,11 @@ export function useTelegramApp() {
                 normalizedPhone = '+7' + phone.slice(1)
               }
               
-              localStorage.setItem('legend_phone', normalizedPhone)
+              // Сохраняем в Firebase
+              if (user?.id) {
+                savePhoneToFirebase(user.id, normalizedPhone)
+              }
+              localStorage.setItem('legend_phone', normalizedPhone) // fallback
               resolve({ success: true, phone: normalizedPhone, isRussian: true })
             } else {
               showAlert('❌ Требуется российский номер телефона (+7...)')
@@ -272,7 +284,11 @@ export function useTelegramApp() {
   }
 
   // Проверка сохраненного номера
-  const getSavedPhone = () => {
+  const getSavedPhone = async () => {
+    if (user?.id) {
+      const phone = await getPhoneFromFirebase(user.id)
+      if (phone) return phone
+    }
     return localStorage.getItem('legend_phone') || null
   }
 

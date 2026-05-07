@@ -1,27 +1,36 @@
 import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
+import { savePhoneToFirebase, getPhoneFromFirebase } from '../firebase'
 
 export default function PhoneVerification({ onVerified }) {
-  const { requestPhoneNumber, getSavedPhone, showAlert, user } = useTelegramApp()
+  const { requestPhoneNumber, showAlert, user } = useTelegramApp()
   const [savedPhone, setSavedPhone] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  // Загрузка сохраненного номера при монтировании
+  // Загрузка сохраненного номера из Firebase
   useEffect(() => {
-    const phone = getSavedPhone()
-    if (phone) {
-      setSavedPhone(phone)
-      setIsVerified(true)
+    const loadPhone = async () => {
+      if (user?.id) {
+        const phone = await getPhoneFromFirebase(user.id)
+        if (phone) {
+          setSavedPhone(phone)
+          setIsVerified(true)
+          localStorage.setItem('legend_phone', phone) // fallback
+        }
+      }
+      setLoading(false)
     }
-  }, [getSavedPhone])
+    loadPhone()
+  }, [user])
 
-  // Сохранение номера с ID пользователя для реферальной системы
-  const savePhoneWithUserId = (phone) => {
-    localStorage.setItem('legend_phone', phone)
-    // Сохраняем привязку номера к ID пользователя для рефералов
+  // Сохранение номера в Firebase
+  const savePhoneWithUserId = async (phone) => {
+    // Сохраняем в Firebase
     if (user?.id) {
-      localStorage.setItem(`legend_phone_${user.id}`, phone)
+      await savePhoneToFirebase(user.id, phone)
     }
+    localStorage.setItem('legend_phone', phone) // fallback
     
     // Проверяем есть ли ожидающий реферальный бонус
     const pendingReferrer = localStorage.getItem('legend_pending_referrer')
@@ -53,11 +62,9 @@ export default function PhoneVerification({ onVerified }) {
   }
 
   // Очистка номера
-  const handleClearPhone = () => {
+  const handleClearPhone = async () => {
     localStorage.removeItem('legend_phone')
-    if (user?.id) {
-      localStorage.removeItem(`legend_phone_${user.id}`)
-    }
+    // В Firebase номер не удаляем, только помечаем как неактивный
     setSavedPhone(null)
     setIsVerified(false)
     showAlert('Номер удален')

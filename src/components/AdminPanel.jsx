@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
+import { getAllUsersFromFirebase, updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers } from '../firebase'
 
 const ADMIN_USER_ID = '1100054796' // ID владельца
 
@@ -9,72 +10,35 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
   const [filter, setFilter] = useState('all') // all, active, blocked, pending
+  const [loading, setLoading] = useState(true)
 
   // Проверка что текущий пользователь - админ
   const isAdmin = user?.id?.toString() === ADMIN_USER_ID
 
-  // Загрузка всех пользователей из localStorage
+  // Загрузка всех пользователей из Firebase с реальным временем
   useEffect(() => {
-    const loadUsers = () => {
-      const allUsers = []
-      
-      // Проходим по всем ключам localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        
-        // Ищем данные пользователей
-        if (key?.startsWith('legend_user_')) {
-          try {
-            const userData = JSON.parse(localStorage.getItem(key))
-            allUsers.push({
-              id: key.replace('legend_user_', ''),
-              ...userData,
-              phone: localStorage.getItem(`legend_phone_${key.replace('legend_user_', '')}`) || null
-            })
-          } catch (e) {
-            console.error('Error parsing user data:', e)
-          }
-        }
-      }
-      
-      // Добавляем тестовых пользователей для демо
-      if (allUsers.length === 0) {
-        const demoUsers = [
-          { id: '123456789', name: 'Иван Петров', level: 'legend', referrals: 5, status: 'active', phone: '+79001234567', joinedAt: '2024-01-15' },
-          { id: '987654321', name: 'Алексей Сидоров', level: 'guardian', referrals: 2, status: 'active', phone: '+79009876543', joinedAt: '2024-02-20' },
-          { id: '456789123', name: 'Михаил Иванов', level: 'newbie', referrals: 0, status: 'blocked', phone: null, joinedAt: '2024-03-10', blockReason: 'Спам' },
-        ]
-        allUsers.push(...demoUsers)
-        // Сохраняем демо-данные
-        demoUsers.forEach(u => {
-          localStorage.setItem(`legend_user_${u.id}`, JSON.stringify({
-            name: u.name,
-            level: u.level,
-            referrals: u.referrals,
-            status: u.status,
-            joinedAt: u.joinedAt,
-            blockReason: u.blockReason
-          }))
-          if (u.phone) localStorage.setItem(`legend_phone_${u.id}`, u.phone)
-        })
-      }
-      
-      setUsers(allUsers)
-    }
+    if (!isAdmin) return
     
-    loadUsers()
-  }, [])
+    setLoading(true)
+    
+    // Подписка на изменения пользователей в реальном времени
+    const unsubscribe = subscribeToUsers((firebaseUsers) => {
+      setUsers(firebaseUsers)
+      setLoading(false)
+    })
+    
+    return () => unsubscribe()
+  }, [isAdmin])
 
-  // Сохранение изменений пользователя
-  const saveUser = (userId, updates) => {
-    const key = `legend_user_${userId}`
-    const existing = JSON.parse(localStorage.getItem(key) || '{}')
-    const updated = { ...existing, ...updates }
-    localStorage.setItem(key, JSON.stringify(updated))
-    
-    // Обновляем список
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u))
-    showAlert('✓ Изменения сохранены')
+  // Сохранение изменений пользователя в Firebase
+  const saveUser = async (userId, updates) => {
+    const success = await updateUserInFirebase(userId, updates)
+    if (success) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u))
+      showAlert('✓ Изменения сохранены')
+    } else {
+      showAlert('❌ Ошибка сохранения')
+    }
   }
 
   // Блокировка пользователя
@@ -295,13 +259,16 @@ export default function AdminPanel() {
                         ⛔ Заблокировать
                       </button>
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation()
                           if (confirm('Удалить пользователя?')) {
-                            localStorage.removeItem(`legend_user_${userData.id}`)
-                            localStorage.removeItem(`legend_phone_${userData.id}`)
-                            setUsers(prev => prev.filter(u => u.id !== userData.id))
-                            showAlert('Пользователь удален')
+                            const success = await deleteUserFromFirebase(userData.id)
+                            if (success) {
+                              setUsers(prev => prev.filter(u => u.id !== userData.id))
+                              showAlert('Пользователь удален')
+                            } else {
+                              showAlert('❌ Ошибка удаления')
+                            }
                           }
                         }}
                         className="py-2 px-4 bg-legend-wenge/20 border border-legend-wenge text-legend-light/60 rounded text-sm"
