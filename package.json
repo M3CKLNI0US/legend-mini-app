@@ -11,10 +11,11 @@
     "start": "serve -s dist -l $PORT"
   },
   "dependencies": {
+    "firebase": "^12.12.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "terser": "^5.46.2",
-    "serve": "^14.2.1"
+    "serve": "^14.2.1",
+    "terser": "^5.46.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
