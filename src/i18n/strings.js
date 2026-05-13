@@ -58,6 +58,10 @@ const RU = {
   profile_perks: 'Привилегии уровня',
   profile_tiers: 'Уровни клуба',
   profile_ref_suffix: '+ рефералов',
+  promo_code: 'Промокод',
+  promo_code_placeholder: 'Введите промокод',
+  promo_apply: 'Применить',
+  promo_description: 'Используйте промокод для получения бонусов. Каждый промокод можно использовать только один раз.',
 }
 
 const EN = {
@@ -118,6 +122,10 @@ const EN = {
   profile_perks: 'Level perks',
   profile_tiers: 'Club tiers',
   profile_ref_suffix: '+ referrals',
+  promo_code: 'Promo code',
+  promo_code_placeholder: 'Enter promo code',
+  promo_apply: 'Apply',
+  promo_description: 'Use promo code to get bonuses. Each promo code can be used only once.',
 }
 
 const ZH = {
@@ -178,6 +186,10 @@ const ZH = {
   profile_perks: '等级权益',
   profile_tiers: '俱乐部等级',
   profile_ref_suffix: '+ 推荐',
+  promo_code: '优惠码',
+  promo_code_placeholder: '输入优惠码',
+  promo_apply: '应用',
+  promo_description: '使用优惠码获取奖金。每个优惠码只能使用一次。',
 }
 
 const DICT = { ru: RU, en: EN, zh: ZH }

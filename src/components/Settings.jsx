@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
-import { subscribeToUser, updateUserInFirebase } from '../firebase'
+import { subscribeToUser, updateUserInFirebase, usePromoCode } from '../firebase'
 import PhoneVerification from './PhoneVerification'
 import { usePreferences } from '../context/PreferencesContext'
 
@@ -23,6 +23,8 @@ export default function Settings({ user }) {
   const [userPhone, setUserPhone] = useState(null)
   const [loading, setLoading] = useState(true)
   const [joinedAt, setJoinedAt] = useState(null)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoLoading, setPromoLoading] = useState(false)
 
   useEffect(() => {
     if (!user?.id) {
@@ -109,6 +111,42 @@ export default function Settings({ user }) {
 
   const handlePhoneVerified = () => {
     setPhoneVerified(true)
+  }
+
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) {
+      showAlert('❌ Введите промокод')
+      return
+    }
+
+    setPromoLoading(true)
+    try {
+      const result = await usePromoCode(user.id, promoCode.trim())
+      
+      if (result.success) {
+        showAlert(`✓ Промокод применён! Получено ${result.bonusAmount} ₽ бонусов`)
+        setPromoCode('')
+        // Обновление данных пользователя произойдёт автоматически через subscribeToUser
+      } else {
+        switch (result.reason) {
+          case 'invalid_code':
+            showAlert('❌ Неверный или неактивный промокод')
+            break
+          case 'max_uses_reached':
+            showAlert('❌ Промокод достиг максимального количества использований')
+            break
+          case 'already_used':
+            showAlert('❌ Вы уже использовали этот промокод')
+            break
+          default:
+            showAlert('❌ Ошибка применения промокода')
+        }
+      }
+    } catch (error) {
+      showAlert('❌ Ошибка применения промокода')
+    } finally {
+      setPromoLoading(false)
+    }
   }
 
   return (
@@ -212,6 +250,28 @@ export default function Settings({ user }) {
         <p className="text-xs text-legend-light/70">
           <strong>{t('brand_title')}</strong> — {t('about_tagline')}
         </p>
+      </div>
+
+      <div className="card-premium space-y-3">
+        <p className="section-heading">{t('promo_code')}</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder={t('promo_code_placeholder')}
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+            className="flex-1 h-10 rounded border border-legend-wenge bg-legend-deep px-3 text-legend-gold font-mono"
+            disabled={promoLoading}
+          />
+          <button
+            onClick={handleApplyPromoCode}
+            disabled={promoLoading || !promoCode.trim()}
+            className="h-10 rounded border border-legend-gold bg-legend-gold/20 px-4 text-sm text-legend-gold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {promoLoading ? '...' : t('promo_apply')}
+          </button>
+        </div>
+        <p className="text-xs text-legend-light/60">{t('promo_description')}</p>
       </div>
 
       <div className="space-y-2">

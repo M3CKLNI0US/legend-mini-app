@@ -235,4 +235,122 @@ export const subscribeToUser = (userId, callback) => {
   })
 }
 
+// Промокоды
+export const createPromoCode = async (promoData) => {
+  try {
+    const code = promoData.code.toUpperCase()
+    const promoRef = ref(database, `promoCodes/${code}`)
+    const existing = await get(promoRef)
+    if (existing.exists()) {
+      return false // Код уже существует
+    }
+    await set(promoRef, {
+      ...promoData,
+      code,
+      createdAt: new Date().toISOString(),
+      usedCount: 0,
+      isActive: true,
+    })
+    return true
+  } catch (error) {
+    console.error('Error creating promo code:', error)
+    return false
+  }
+}
+
+export const getPromoCode = async (code) => {
+  try {
+    const promoRef = ref(database, `promoCodes/${code.toUpperCase()}`)
+    const snapshot = await get(promoRef)
+    if (snapshot.exists()) {
+      return snapshot.val()
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting promo code:', error)
+    return null
+  }
+}
+
+export const usePromoCode = async (userId, code) => {
+  try {
+    const promo = await getPromoCode(code)
+    if (!promo || !promo.isActive) {
+      return { success: false, reason: 'invalid_code' }
+    }
+
+    if (promo.usedCount >= promo.maxUses) {
+      return { success: false, reason: 'max_uses_reached' }
+    }
+
+    // Проверяем, не использовал ли пользователь этот промокод
+    const userRef = ref(database, `users/${userId}`)
+    const userSnapshot = await get(userRef)
+    const userData = userSnapshot.val() || {}
+    const usedCodes = userData.usedPromoCodes || []
+
+    if (usedCodes.includes(code.toUpperCase())) {
+      return { success: false, reason: 'already_used' }
+    }
+
+    // Применяем промокод
+    const currentBonus = userData.bonusBalance || 0
+    const newBonus = currentBonus + promo.bonusAmount
+
+    // Обновляем пользователя
+    await update(userRef, {
+      bonusBalance: newBonus,
+      usedPromoCodes: [...usedCodes, code.toUpperCase()],
+      lastPromoUsed: new Date().toISOString(),
+    })
+
+    // Обновляем промокод
+    const promoRef = ref(database, `promoCodes/${code.toUpperCase()}`)
+    await update(promoRef, {
+      usedCount: promo.usedCount + 1,
+    })
+
+    return { success: true, bonusAmount: promo.bonusAmount }
+  } catch (error) {
+    console.error('Error using promo code:', error)
+    return { success: false, reason: 'error' }
+  }
+}
+
+export const getAllPromoCodes = async () => {
+  try {
+    const promoRef = ref(database, 'promoCodes')
+    const snapshot = await get(promoRef)
+    if (snapshot.exists()) {
+      return Object.values(snapshot.val())
+    }
+    return []
+  } catch (error) {
+    console.error('Error getting promo codes:', error)
+    return []
+  }
+}
+
+export const updatePromoCode = async (code, updates) => {
+  try {
+    const promoRef = ref(database, `promoCodes/${code.toUpperCase()}`)
+    await update(promoRef, updates)
+    return true
+  } catch (error) {
+    console.error('Error updating promo code:', error)
+    return false
+  }
+}
+
+export const deletePromoCode = async (code) => {
+  try {
+    const promoRef = ref(database, `promoCodes/${code.toUpperCase()}`)
+    await remove(promoRef)
+    return true
+  } catch (error) {
+    console.error('Error deleting promo code:', error)
+    return false
+  }
+}
+
 export default app

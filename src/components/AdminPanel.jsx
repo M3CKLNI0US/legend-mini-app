@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
-import { updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers, savePhoneToFirebase, defaultCardNumberFromUserId, parseCardNumberInput } from '../firebase'
+import { updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers, savePhoneToFirebase, defaultCardNumberFromUserId, parseCardNumberInput, createPromoCode, getAllPromoCodes, updatePromoCode, deletePromoCode } from '../firebase'
 
 const ADMIN_USER_ID = '1100054796' // ID владельца
 
@@ -13,6 +13,11 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true)
   const [cardInput, setCardInput] = useState('')
   const [bonusInput, setBonusInput] = useState('')
+  const [promoCodes, setPromoCodes] = useState([])
+  const [showPromoCreator, setShowPromoCreator] = useState(false)
+  const [promoCodeInput, setPromoCodeInput] = useState('')
+  const [promoBonusInput, setPromoBonusInput] = useState('')
+  const [promoMaxUsesInput, setPromoMaxUsesInput] = useState('')
 
   const selectedUser = useMemo(
     () => (selectedUserId == null ? null : users.find((u) => String(u.id) === String(selectedUserId)) || null),
@@ -41,6 +46,17 @@ export default function AdminPanel() {
     })
     
     return () => unsubscribe()
+  }, [isAdmin])
+
+  // Загрузка промокодов
+  useEffect(() => {
+    if (!isAdmin) return
+    
+    const loadPromoCodes = async () => {
+      const codes = await getAllPromoCodes()
+      setPromoCodes(codes)
+    }
+    loadPromoCodes()
   }, [isAdmin])
 
   // Сохранение изменений пользователя в Firebase
@@ -117,6 +133,65 @@ export default function AdminPanel() {
       showAlert('✓ Телефон сохранён в Firebase')
     } else {
       showAlert('❌ Ошибка сохранения телефона')
+    }
+  }
+
+  // Создание промокода
+  const createNewPromoCode = async () => {
+    if (!promoCodeInput.trim()) {
+      showAlert('❌ Введите код промокода')
+      return
+    }
+    if (!promoBonusInput || isNaN(promoBonusInput) || parseInt(promoBonusInput) <= 0) {
+      showAlert('❌ Введите корректную сумму бонуса')
+      return
+    }
+    if (!promoMaxUsesInput || isNaN(promoMaxUsesInput) || parseInt(promoMaxUsesInput) <= 0) {
+      showAlert('❌ Введите корректное количество использований')
+      return
+    }
+
+    const success = await createPromoCode({
+      code: promoCodeInput.trim(),
+      bonusAmount: parseInt(promoBonusInput),
+      maxUses: parseInt(promoMaxUsesInput),
+    })
+
+    if (success) {
+      showAlert('✓ Промокод создан')
+      setPromoCodeInput('')
+      setPromoBonusInput('')
+      setPromoMaxUsesInput('')
+      setShowPromoCreator(false)
+      // Перезагрузка промокодов
+      const codes = await getAllPromoCodes()
+      setPromoCodes(codes)
+    } else {
+      showAlert('❌ Ошибка создания промокода (возможно, код уже существует)')
+    }
+  }
+
+  // Удаление промокода
+  const removePromoCode = async (code) => {
+    const success = await deletePromoCode(code)
+    if (success) {
+      showAlert('✓ Промокод удалён')
+      setPromoCodes(prev => prev.filter(p => p.code !== code))
+    } else {
+      showAlert('❌ Ошибка удаления промокода')
+    }
+  }
+
+  // Деактивация промокода
+  const togglePromoCode = async (code, isActive) => {
+    const success = await updatePromoCode(code, { isActive: !isActive })
+    if (success) {
+      showAlert(isActive ? '✓ Промокод деактивирован' : '✓ Промокод активирован')
+      setPromoCodes(prev => prev.map(p => 
+        p.code === code ? { ...p, isActive: !isActive } : p
+      ))
+    } else {
+      showAlert('❌ Ошибка обновления промокода')
     }
   }
 
@@ -227,6 +302,88 @@ export default function AdminPanel() {
         <div className="card-premium text-center">
           <p className="text-legend-gold text-2xl font-serif font-bold">{stats.legends}</p>
           <p className="text-xs text-legend-light/60">Легенд</p>
+        </div>
+      </div>
+
+      {/* Promo Codes */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-legend-gold text-sm font-bold uppercase">Промокоды ({promoCodes.length})</p>
+          <button
+            onClick={() => setShowPromoCreator(!showPromoCreator)}
+            className="rounded border border-legend-gold bg-legend-gold/15 px-3 py-1 text-xs text-legend-gold"
+          >
+            {showPromoCreator ? 'Отмена' : '+ Создать'}
+          </button>
+        </div>
+
+        {showPromoCreator && (
+          <div className="card-premium space-y-3">
+            <p className="text-sm font-bold text-legend-gold">Создание промокода</p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                placeholder="Код промокода (например: WELCOME50)"
+                value={promoCodeInput}
+                onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                className="w-full h-10 rounded border border-legend-wenge bg-legend-deep px-3 text-legend-gold font-mono"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Бонус (руб.)"
+                  value={promoBonusInput}
+                  onChange={(e) => setPromoBonusInput(e.target.value)}
+                  className="flex-1 h-10 rounded border border-legend-wenge bg-legend-deep px-3 text-legend-gold"
+                />
+                <input
+                  type="number"
+                  placeholder="Макс. использований"
+                  value={promoMaxUsesInput}
+                  onChange={(e) => setPromoMaxUsesInput(e.target.value)}
+                  className="flex-1 h-10 rounded border border-legend-wenge bg-legend-deep px-3 text-legend-gold"
+                />
+              </div>
+              <button
+                onClick={createNewPromoCode}
+                className="w-full h-10 rounded border border-legend-gold bg-legend-gold/20 text-legend-gold font-bold"
+              >
+                Создать промокод
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2 max-h-60 overflow-y-auto">
+          {promoCodes.map((promo) => (
+            <div key={promo.code} className="card-premium flex items-center justify-between">
+              <div>
+                <p className="font-mono text-sm font-bold text-legend-gold">{promo.code}</p>
+                <p className="text-xs text-legend-light/60">
+                  {promo.bonusAmount} ₽ • {promo.usedCount}/{promo.maxUses} • 
+                  {promo.isActive ? 'Активен' : 'Неактивен'}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => togglePromoCode(promo.code, promo.isActive)}
+                  className={`rounded border px-2 py-1 text-xs ${
+                    promo.isActive 
+                      ? 'border-red-700/50 bg-red-900/20 text-red-400' 
+                      : 'border-green-700/50 bg-green-900/20 text-green-400'
+                  }`}
+                >
+                  {promo.isActive ? 'Выкл' : 'Вкл'}
+                </button>
+                <button
+                  onClick={() => removePromoCode(promo.code)}
+                  className="rounded border border-red-700/50 bg-red-900/20 px-2 py-1 text-xs text-red-400"
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
