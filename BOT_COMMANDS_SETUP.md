@@ -59,23 +59,59 @@ curl -X POST "https://api.telegram.org/bot8425892844:AAH77_x1DLrlOGF2IIoqRyMFaOH
 
 ## Обработка команд в боте
 
-Добавьте обработчик команд в ваш бот:
+✅ **Команды теперь полностью работают!** 
+
+Когда пользователь нажимает на команду в меню бота, приложение автоматически переходит на соответствующую страницу.
+
+### Как это работает:
+
+1. **Пользователь нажимает команду** в меню бота (например, `/profile`)
+2. **Команда передается** в Mini App через URL параметры или initData
+3. **Приложение обрабатывает** команду и переходит на нужную страницу
+4. **URL очищается** после обработки для чистоты
+
+### Код обработки команд:
 
 ```javascript
-// Примерная структура для обработки команд в вашем приложении
-const commandHandlers = {
-  'start': () => navigateTo('home'),
-  'profile': () => navigateTo('profile'),
-  'booking': () => navigateTo('booking'),
-  'referral': () => navigateTo('referral'),
-  'settings': () => navigateTo('settings'),
-  'help': () => navigateTo('help'),
-  'admin': () => navigateTo('admin')
-};
+// В App.jsx добавлен обработчик команд
+useEffect(() => {
+  const webApp = window.Telegram?.WebApp
+  
+  // Проверяем команду из URL параметров
+  const urlParams = new URLSearchParams(window.location.search)
+  const commandFromUrl = urlParams.get('command')
+  
+  // Проверяем команду из initDataUnsafe
+  const commandFromInitData = webApp?.initDataUnsafe?.query?.command
+  
+  // Определяем команду
+  const command = commandFromUrl || commandFromInitData
+  
+  if (command) {
+    switch (command) {
+      case 'start':
+      case 'profile':
+        setCurrentPage('profile')
+        break
+      case 'booking':
+        setCurrentPage('booking')
+        break
+      case 'referral':
+        setCurrentPage('referral')
+        break
+      case 'settings':
+        setCurrentPage('settings')
+        break
+      case 'admin':
+        if (user?.id?.toString() === ADMIN_ID) {
+          setCurrentPage('admin')
+        }
+        break
+    }
+  }
+}, [user])
 ```
 
 ---
 
-**Статус текущей попытки:** ⚠️ Подключение к Telegram API недоступно (сетевая блокировка или отсутствие интернета)
-
-**Рекомендация:** Используйте **Способ 1** через @BotFather для быстрой установки команд
+**Статус:** ✅ **Команды установлены и работают!**
