@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { subscribeToUser, defaultCardNumberFromUserId } from '../firebase'
 import { usePreferences } from '../context/PreferencesContext'
+import { getLevelTiers } from '../i18n/levels'
 
 export default function Profile({ user, userLevel: initialLevel, referralCount: initialReferrals }) {
   const { language, t } = usePreferences()
