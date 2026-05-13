@@ -4,16 +4,17 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #1A1A1A;
+  background: #121214;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #8B6B3F;
-  border-radius: 3px;
+  background: linear-gradient(180deg, #a88b4f, #6b5230);
+  border-radius: 4px;
+  border: 2px solid #121214;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #C6A96B;
+  background: #c6a96b;
 }
 
 /* Анимации */

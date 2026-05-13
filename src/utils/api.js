@@ -14,7 +14,7 @@ export const getTelegramInitData = () => {
 }
 
 export const generateReferralLink = (userId) => {
-  const botUsername = process.env.REACT_APP_BOT_USERNAME || 'YourBotUsername'
+  const botUsername = import.meta.env.VITE_BOT_USERNAME || 'YourBotUsername'
   return `https://t.me/${botUsername}?start=ref_${userId}`
 }
 
@@ -28,7 +28,7 @@ export const shareToTelegram = (webApp, text, link) => {
  * API Calls (замени на свой backend)
  */
 
-const API_BASE = process.env.REACT_APP_API_URL || 'https://api.example.com'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://api.example.com'
 
 export const api = {
   // Получи профиль пользователя
@@ -149,42 +149,30 @@ export const formatTime = (time) => {
 }
 
 /**
- * Отправка уведомления админу о новой записи
+ * Уведомление админа о записи. Токен бота нельзя держать во фронтенде —
+ * укажи URL своего бэкенда (POST JSON), который вызовет sendMessage.
  */
 export const notifyAdminBooking = async (bookingData) => {
-  const BOT_TOKEN = '8425892844:AAH77_x1DLrlOGF2IIoqRyMFaOHADotlpKo'
-  const ADMIN_CHAT_ID = '1100054796'
-  
-  const message = `
-🎭 <b>НОВАЯ ЗАПИСЬ — ЛЕГЕНДА</b>
+  const notifyUrl = import.meta.env.VITE_ADMIN_NOTIFY_URL
+  if (!notifyUrl) {
+    console.warn(
+      '[notifyAdminBooking] Задай VITE_ADMIN_NOTIFY_URL — эндпоинт, который отправит сообщение в Telegram от имени бота.'
+    )
+    const pending = JSON.parse(localStorage.getItem('legend_pending_bookings') || '[]')
+    pending.push({ ...bookingData, createdAt: new Date().toISOString() })
+    localStorage.setItem('legend_pending_bookings', JSON.stringify(pending))
+    return false
+  }
 
-👤 Клиент: ${bookingData.userName || 'Неизвестно'}
-📅 Дата: ${bookingData.date}
-⏰ Время: ${bookingData.time}
-💈 Мастер: ${bookingData.barber}
-
-🔗 Открыть Mini App для подтверждения
-  `
-  
   try {
-    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const response = await fetch(notifyUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: ADMIN_CHAT_ID,
-        text: message,
-        parse_mode: 'HTML',
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bookingData),
     })
-    
-    const result = await response.json()
-    console.log('Admin notification sent:', result)
-    return result.ok
+    return response.ok
   } catch (error) {
     console.error('Error sending admin notification:', error)
-    // Fallback: сохраняем в localStorage для ручной проверки
     const pending = JSON.parse(localStorage.getItem('legend_pending_bookings') || '[]')
     pending.push({ ...bookingData, createdAt: new Date().toISOString() })
     localStorage.setItem('legend_pending_bookings', JSON.stringify(pending))

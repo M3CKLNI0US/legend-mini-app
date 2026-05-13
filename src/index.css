@@ -17,27 +17,73 @@
 }
 
 @layer components {
+  .app-surface {
+    @apply min-h-full bg-legend-black bg-legend-mesh;
+  }
+
   .card-premium {
-    @apply bg-legend-deep border border-legend-wenge rounded-lg p-4 transition-all duration-300;
+    @apply relative overflow-hidden rounded-2xl border border-legend-wenge/80 bg-legend-deep/90 p-4 shadow-legend-soft backdrop-blur-sm transition-all duration-300;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  .card-premium::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      rgba(198, 169, 107, 0.06) 0%,
+      transparent 40%
+    );
+    opacity: 1;
   }
 
   .card-premium:hover {
-    @apply border-legend-gold shadow-[0_0_20px_rgba(198,169,107,0.3)];
+    @apply border-legend-gold/40 shadow-legend-glow;
   }
 
   .btn-gold {
-    @apply px-4 py-3 border border-legend-gold text-legend-gold rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(198,169,107,0.5)] active:scale-95;
+    @apply rounded-xl px-4 py-3 font-medium text-legend-gold transition-all duration-300 active:scale-[0.98];
+    border: 1px solid rgba(198, 169, 107, 0.55);
+    background: linear-gradient(180deg, rgba(198, 169, 107, 0.12) 0%, rgba(198, 169, 107, 0.02) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .btn-gold:hover {
+    box-shadow:
+      0 0 24px rgba(198, 169, 107, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    border-color: rgba(228, 201, 138, 0.65);
   }
 
   .btn-gold-filled {
-    @apply px-4 py-3 bg-legend-gold text-legend-black rounded-lg font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(198,169,107,0.6)] active:scale-95;
+    @apply rounded-xl px-4 py-3 font-semibold text-legend-black transition-all duration-300 active:scale-[0.98];
+    background: linear-gradient(180deg, #e4c98a 0%, #c6a96b 55%, #a88b4f 100%);
+    box-shadow:
+      0 4px 16px rgba(198, 169, 107, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .btn-gold-filled:hover {
+    box-shadow:
+      0 6px 28px rgba(198, 169, 107, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 
   .badge-level {
-    @apply inline-block px-3 py-1 border border-legend-gold text-legend-gold text-xs font-bold uppercase tracking-wider;
+    @apply inline-block rounded-md border border-legend-gold/60 px-3 py-1 text-xs font-bold uppercase tracking-wider text-legend-gold-bright;
+    background: rgba(198, 169, 107, 0.08);
   }
 
   .line-accent {
-    @apply h-0.5 bg-gradient-to-r from-transparent via-legend-gold to-transparent;
+    @apply h-px bg-gradient-to-r from-transparent via-legend-gold/70 to-transparent;
+  }
+
+  .section-heading {
+    @apply text-xs font-bold uppercase tracking-[0.2em] text-legend-gold/90;
   }
 }

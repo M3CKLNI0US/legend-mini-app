@@ -11,23 +11,31 @@ export default function Header({ userLevel }) {
   const level = levelInfo[userLevel] || levelInfo.newbie
 
   return (
-    <header className="sticky top-0 z-50 bg-legend-black border-b border-legend-wenge p-4">
-      <div className="flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center space-x-2">
-          <div className="text-2xl font-serif font-bold text-legend-gold animate-fade-in">◊</div>
-          <span className="font-serif font-bold text-sm">ЛЕГЕНДА</span>
+    <header className="sticky top-0 z-40 border-b border-legend-wenge/40 bg-legend-black/80 px-4 py-3 backdrop-blur-xl supports-[backdrop-filter]:bg-legend-black/55">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-legend-gold/25 bg-gradient-to-br from-legend-gold/15 to-transparent shadow-legend-glow">
+            <span className="font-serif text-xl font-bold text-legend-gold-bright animate-fade-in">◊</span>
+          </div>
+          <div>
+            <p className="font-serif text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-legend-gold/70">
+              Клуб
+            </p>
+            <p className="font-serif text-base font-bold leading-tight tracking-wide text-legend-light">
+              ЛЕГЕНДА
+            </p>
+          </div>
         </div>
 
-        {/* User Level */}
-        <div className="text-center">
-          <p className={`text-sm font-bold ${level.color}`}>{level.icon}</p>
-          <p className="text-xs text-legend-light/60">{level.name}</p>
+        <div className="text-right">
+          <p className={`text-base font-bold leading-none ${level.color}`}>{level.icon}</p>
+          <p className="mt-1 max-w-[9rem] truncate text-[0.65rem] font-medium uppercase tracking-wide text-legend-light/50">
+            {level.name}
+          </p>
         </div>
       </div>
 
-      {/* Line Accent */}
-      <div className="line-accent mt-3"></div>
+      <div className="line-accent mt-3 opacity-80" />
     </header>
   )
 }

@@ -99,11 +99,11 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
   }
 
   return (
-    <div className="p-4 pb-32 space-y-6">
+    <div className="animate-fade-in space-y-6 p-4 pb-36">
       {/* Referral Link Card */}
       <div className="card-premium">
-        <p className="text-legend-gold text-sm font-bold uppercase mb-3">Ваша ссылка приглашения</p>
-        <div className="bg-legend-black border border-legend-wenge rounded p-3 mb-3 font-mono text-xs text-legend-light/60 break-all">
+        <p className="section-heading mb-3">Ваша ссылка приглашения</p>
+        <div className="mb-3 break-all rounded-xl border border-legend-wenge/80 bg-legend-black/60 px-3 py-3 font-mono text-[0.7rem] leading-relaxed text-legend-light/70 ring-1 ring-inset ring-white/[0.03]">
           {referralLink}
         </div>
         <button
@@ -158,7 +158,7 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
 
       {/* Reward Tiers */}
       <div className="space-y-3">
-        <p className="text-legend-gold text-sm font-bold uppercase">Награды за приглашения</p>
+        <p className="section-heading mb-3">Награды за приглашения</p>
 
         {[
           { count: 1, reward: '100 ₽', title: 'Первый реферал' },
@@ -191,7 +191,7 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
       {/* Referral List */}
       {referredUsers.length > 0 && (
         <div className="space-y-3">
-          <p className="text-legend-gold text-sm font-bold uppercase">Ваши рефералы</p>
+          <p className="section-heading">Ваши рефералы</p>
           {referredUsers.slice(-5).reverse().map((ref) => (
             <div key={ref.id} className="card-premium flex justify-between items-center">
               <div>

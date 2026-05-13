@@ -63,8 +63,8 @@ export default function App() {
   // Экран блокировки
   if (userStatus === 'blocked') {
     return (
-      <div className="min-h-screen bg-legend-deep flex items-center justify-center p-4">
-        <div className="card-premium bg-red-900/20 border-red-500/50 max-w-md w-full text-center">
+      <div className="app-surface flex min-h-screen items-center justify-center p-4">
+        <div className="card-premium max-w-md w-full border-red-500/40 bg-red-950/25 text-center shadow-legend-soft">
           <div className="text-6xl mb-4">🚫</div>
           <h1 className="text-xl font-serif font-bold text-red-400 mb-2">
             Извините, вы больше не член клуба
@@ -87,22 +87,28 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div className="min-h-screen bg-legend-deep flex items-center justify-center">
+      <div className="app-surface flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-legend-gold/20 border-t-legend-gold rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-legend-light/60 font-serif">Загрузка...</p>
+          <div className="relative mx-auto mb-5 h-16 w-16">
+            <div className="absolute inset-0 rounded-full border-2 border-legend-gold/15" />
+            <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-legend-gold border-r-legend-gold/40" />
+            <div className="absolute inset-2 flex items-center justify-center font-serif text-lg text-legend-gold/90">
+              ◊
+            </div>
+          </div>
+          <p className="font-serif text-sm tracking-wide text-legend-light/55">Загрузка клуба…</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-screen bg-legend-black text-legend-light">
+    <div className="app-surface flex h-screen flex-col font-sans text-legend-light">
       {/* Header */}
       <Header userLevel={userLevel} />
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-y-contain">
         {currentPage === 'profile' && (
           <Profile 
             user={user} 

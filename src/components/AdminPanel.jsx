@@ -132,7 +132,7 @@ export default function AdminPanel() {
 
   if (!isAdmin) {
     return (
-      <div className="p-4 pb-32">
+      <div className="p-4 pb-36">
         <div className="card-premium bg-red-900/20 border-red-900/50">
           <p className="text-center text-red-400">⛔ Доступ запрещен</p>
           <p className="text-center text-xs text-legend-light/60 mt-2">Эта секция только для администраторов</p>
@@ -142,7 +142,7 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="p-4 pb-32 space-y-6 animate-fade-in">
+    <div className="p-4 pb-36 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="card-premium bg-gradient-to-r from-red-900/20 to-legend-gold/20 border-legend-gold">
         <p className="text-center text-lg font-serif font-bold text-legend-gold">👑 Панель администратора</p>

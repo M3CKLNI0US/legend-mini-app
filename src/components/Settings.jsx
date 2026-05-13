@@ -51,34 +51,34 @@ export default function Settings({ user }) {
   }
 
   return (
-    <div className="p-4 pb-32 space-y-6 animate-fade-in">
+    <div className="animate-fade-in space-y-6 p-4 pb-36">
       {/* Header */}
-      <div className="card-premium bg-gradient-to-r from-legend-brass/20 to-legend-gold/20 border-legend-gold">
-        <p className="text-center text-lg font-serif font-bold text-legend-gold">Профиль и настройки</p>
+      <div className="card-premium border-legend-gold/20 bg-gradient-to-r from-legend-brass/10 to-legend-gold/10">
+        <p className="text-center font-serif text-lg font-bold text-legend-gold-bright">Профиль и настройки</p>
       </div>
 
       {/* User Info */}
       <div className="card-premium space-y-3">
-        <p className="text-legend-gold text-sm font-bold uppercase mb-4">Информация профиля</p>
+        <p className="section-heading mb-4">Информация профиля</p>
 
-        <div className="flex justify-between items-center py-2 border-b border-legend-wenge">
-          <span className="text-legend-light/60">Telegram ID</span>
-          <span className="text-legend-gold font-mono">{user?.id || '—'}</span>
+        <div className="flex items-center justify-between border-b border-legend-wenge/60 py-2.5">
+          <span className="text-sm text-legend-light/55">Telegram ID</span>
+          <span className="font-mono text-sm font-medium text-legend-gold-bright">{user?.id || '—'}</span>
         </div>
 
-        <div className="flex justify-between items-center py-2 border-b border-legend-wenge">
-          <span className="text-legend-light/60">Имя</span>
-          <span className="text-legend-light">{user?.first_name || '—'}</span>
+        <div className="flex items-center justify-between border-b border-legend-wenge/60 py-2.5">
+          <span className="text-sm text-legend-light/55">Имя</span>
+          <span className="text-sm text-legend-light">{user?.first_name || '—'}</span>
         </div>
 
-        <div className="flex justify-between items-center py-2 border-b border-legend-wenge">
-          <span className="text-legend-light/60">Юзернейм</span>
-          <span className="text-legend-light">@{user?.username || 'нет'}</span>
+        <div className="flex items-center justify-between border-b border-legend-wenge/60 py-2.5">
+          <span className="text-sm text-legend-light/55">Юзернейм</span>
+          <span className="text-sm text-legend-light">@{user?.username || 'нет'}</span>
         </div>
 
-        <div className="flex justify-between items-center py-2">
-          <span className="text-legend-light/60">Дата регистрации</span>
-          <span className="text-legend-gold text-sm">15 января 2024</span>
+        <div className="flex items-center justify-between py-2.5">
+          <span className="text-sm text-legend-light/55">Дата регистрации</span>
+          <span className="text-sm text-legend-gold-bright">15 января 2024</span>
         </div>
       </div>
 
@@ -104,7 +104,7 @@ export default function Settings({ user }) {
 
       {/* Notifications */}
       <div className="card-premium space-y-3">
-        <p className="text-legend-gold text-sm font-bold uppercase mb-4">Уведомления</p>
+        <p className="section-heading mb-4">Уведомления</p>
 
         <button
           onClick={() => handleToggle(notificationsEnabled, setNotificationsEnabled, 'Уведомления в Telegram')}
@@ -129,7 +129,7 @@ export default function Settings({ user }) {
 
       {/* Preferences */}
       <div className="card-premium space-y-3">
-        <p className="text-legend-gold text-sm font-bold uppercase mb-4">Предпочтения</p>
+        <p className="section-heading mb-4">Предпочтения</p>
 
         <button className="w-full flex justify-between items-center py-3 border-b border-legend-wenge/30 hover:bg-legend-gold/5 rounded px-2 transition-all">
           <span className="text-legend-light">Тема приложения</span>
