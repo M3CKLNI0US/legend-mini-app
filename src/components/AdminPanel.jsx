@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
-import { getAllUsersFromFirebase, updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers } from '../firebase'
+import { updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers, savePhoneToFirebase } from '../firebase'
 
 const ADMIN_USER_ID = '1100054796' // ID владельца
 
 export default function AdminPanel() {
-  const { user, showAlert } = useTelegramApp()
+  const { user, showAlert, initData } = useTelegramApp()
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
@@ -79,30 +79,32 @@ export default function AdminPanel() {
   }
 
   // Установить телефон пользователю (ручное подтверждение)
-  const setUserPhone = (userId, phone) => {
+  const setUserPhone = async (userId, phone) => {
     if (!phone || phone.trim() === '') {
       showAlert('❌ Введите номер телефона')
       return
     }
-    // Проверка на российский номер
     const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
     if (!isRussian) {
       showAlert('❌ Требуется российский номер (+7...)')
       return
     }
-    // Нормализуем номер
-    let normalizedPhone = phone
-    if (phone.startsWith('8') && phone.length === 11) {
-      normalizedPhone = '+7' + phone.slice(1)
-    } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
-      normalizedPhone = '+7' + phone.slice(1)
+    let normalizedPhone = phone.trim()
+    if (normalizedPhone.startsWith('8') && normalizedPhone.replace(/\D/g, '').length === 11) {
+      normalizedPhone = '+7' + normalizedPhone.replace(/\D/g, '').slice(1)
+    } else if (normalizedPhone.startsWith('7') && !normalizedPhone.startsWith('+7')) {
+      normalizedPhone = '+7' + normalizedPhone.replace(/\D/g, '').slice(1)
+    } else if (/^\d{10}$/.test(normalizedPhone.replace(/\D/g, ''))) {
+      normalizedPhone = '+7' + normalizedPhone.replace(/\D/g, '')
     }
-    
-    saveUser(userId, { 
-      phone: normalizedPhone, 
-      phoneVerified: true,
-      phoneVerifiedAt: new Date().toISOString()
-    })
+
+    const ok = await savePhoneToFirebase(userId, normalizedPhone)
+    if (ok) {
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, phone: normalizedPhone, phoneVerified: true } : u)))
+      showAlert('✓ Телефон сохранён в Firebase')
+    } else {
+      showAlert('❌ Ошибка сохранения телефона')
+    }
   }
 
   // Фильтрация пользователей
@@ -400,19 +402,56 @@ export default function AdminPanel() {
                   )}
                 </div>
 
+                <div className="space-y-2 border-t border-legend-wenge/30 pt-3">
+                  <p className="text-xs font-bold text-legend-gold">Уведомления</p>
+                  <p className="text-xs text-legend-light/50">
+                    Сообщения:{' '}
+                    {userData.notificationsEnabled === false ? (
+                      <span className="text-red-400">выключены</span>
+                    ) : (
+                      <span className="text-green-400">включены</span>
+                    )}
+                  </p>
+                </div>
+
                 {/* Send Message */}
                 <button
-                  onClick={(e) => {
+                  type="button"
+                  onClick={async (e) => {
                     e.stopPropagation()
-                    const message = prompt('Сообщение пользователю:')
-                    if (message) {
-                      // В реальности здесь отправка через бота
-                      showAlert(`Сообщение отправлено пользователю ${userData.id}`)
+                    const message = prompt('Текст сообщения пользователю в Telegram:')
+                    if (!message || !message.trim()) return
+                    if (!initData) {
+                      showAlert('Нет подписи Telegram (initData). Откройте мини-приложение из бота, не из обычного браузера.')
+                      return
+                    }
+                    try {
+                      const res = await fetch('/api/send-notification', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          initData,
+                          targetUserId: String(userData.id),
+                          message: message.trim(),
+                        }),
+                      })
+                      const data = await res.json().catch(() => ({}))
+                      if (res.status === 409) {
+                        showAlert(data.message || 'У пользователя выключены уведомления.')
+                        return
+                      }
+                      if (!res.ok) {
+                        showAlert(data.error || `Ошибка ${res.status}`)
+                        return
+                      }
+                      showAlert('✓ Сообщение отправлено в Telegram')
+                    } catch (err) {
+                      showAlert('Сеть: ' + (err?.message || String(err)))
                     }
                   }}
-                  className="w-full py-2 bg-legend-brass/20 border border-legend-brass text-legend-brass rounded text-sm"
+                  className="w-full rounded border border-legend-brass bg-legend-brass/20 py-2 text-sm text-legend-brass"
                 >
-                  📨 Отправить сообщение
+                  📨 Отправить в Telegram
                 </button>
               </div>
             )}

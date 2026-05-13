@@ -2,28 +2,38 @@
 import { initializeApp } from 'firebase/app'
 import { getDatabase, ref, set, get, update, remove, onValue } from 'firebase/database'
 
-// Your Firebase config - get this from Firebase Console
 const firebaseConfig = {
-  apiKey: "AIzaSyDHDKijG-BThjvlk5zdha3qZwL3wQRUfHM",
-  authDomain: "legendproject-5baa7.firebaseapp.com",
-  databaseURL: "https://legendproject-5baa7-default-rtdb.firebaseio.com",
-  projectId: "legendproject-5baa7",
-  storageBucket: "legendproject-5baa7.firebasestorage.app",
-  messagingSenderId: "110465083550",
-  appId: "1:110465083550:web:d808ca848d980e07ee738f"
+  apiKey: 'AIzaSyDHDKijG-BThjvlk5zdha3qZwL3wQRUfHM',
+  authDomain: 'legendproject-5baa7.firebaseapp.com',
+  databaseURL: 'https://legendproject-5baa7-default-rtdb.firebaseio.com',
+  projectId: 'legendproject-5baa7',
+  storageBucket: 'legendproject-5baa7.firebasestorage.app',
+  messagingSenderId: '110465083550',
+  appId: '1:110465083550:web:d808ca848d980e07ee738f',
 }
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig)
 export const database = getDatabase(app)
 
-// User operations
+/** Полная перезапись узла пользователя с объединением с уже сохранёнными полями */
 export const saveUserToFirebase = async (userData) => {
   try {
-    await set(ref(database, `users/${userData.id}`), {
+    const id = userData.id
+    const snap = await get(ref(database, `users/${id}`))
+    const existing = snap.exists() ? snap.val() : {}
+    const merged = {
+      ...existing,
       ...userData,
-      lastVisit: new Date().toISOString()
-    })
+      id,
+      lastVisit: new Date().toISOString(),
+    }
+    if (merged.notificationsEnabled === undefined && existing.notificationsEnabled === undefined) {
+      merged.notificationsEnabled = true
+    }
+    if (merged.smsNotifications === undefined && existing.smsNotifications === undefined) {
+      merged.smsNotifications = false
+    }
+    await set(ref(database, `users/${id}`), merged)
     return true
   } catch (error) {
     console.error('Error saving user:', error)
@@ -49,9 +59,9 @@ export const getAllUsersFromFirebase = async () => {
     const snapshot = await get(ref(database, 'users'))
     if (snapshot.exists()) {
       const users = snapshot.val()
-      return Object.keys(users).map(key => ({
+      return Object.keys(users).map((key) => ({
         id: key,
-        ...users[key]
+        ...users[key],
       }))
     }
     return []
@@ -74,6 +84,11 @@ export const updateUserInFirebase = async (userId, updates) => {
 export const deleteUserFromFirebase = async (userId) => {
   try {
     await remove(ref(database, `users/${userId}`))
+    try {
+      await remove(ref(database, `phones/${userId}`))
+    } catch {
+      /* ignore */
+    }
     return true
   } catch (error) {
     console.error('Error deleting user:', error)
@@ -81,23 +96,35 @@ export const deleteUserFromFirebase = async (userId) => {
   }
 }
 
-// Phone verification operations
 export const savePhoneToFirebase = async (userId, phone) => {
   try {
-    // Сохраняем в отдельную ветку phones
     await set(ref(database, `phones/${userId}`), {
       phone,
-      verifiedAt: new Date().toISOString()
+      verifiedAt: new Date().toISOString(),
     })
-    // Обновляем статус верификации в профиле пользователя
     await update(ref(database, `users/${userId}`), {
       phoneVerified: true,
-      phone: phone,
-      phoneVerifiedAt: new Date().toISOString()
+      phone,
+      phoneVerifiedAt: new Date().toISOString(),
     })
     return true
   } catch (error) {
     console.error('Error saving phone:', error)
+    return false
+  }
+}
+
+export const clearPhoneVerificationInFirebase = async (userId) => {
+  try {
+    await remove(ref(database, `phones/${userId}`))
+    await update(ref(database, `users/${userId}`), {
+      phoneVerified: false,
+      phone: null,
+      phoneVerifiedAt: null,
+    })
+    return true
+  } catch (error) {
+    console.error('Error clearing phone:', error)
     return false
   }
 }
@@ -108,30 +135,33 @@ export const getPhoneFromFirebase = async (userId) => {
     if (snapshot.exists()) {
       return snapshot.val().phone
     }
-    return null
+    const u = await getUserFromFirebase(userId)
+    return u?.phone || null
   } catch (error) {
     console.error('Error getting phone:', error)
     return null
   }
 }
 
-// Referral operations
 export const saveReferralToFirebase = async (referrerId, referralData) => {
   try {
-    const referralRef = ref(database, `referrals/${referrerId}/${referralData.id}`)
+    const refereeKey = String(referralData.id)
+    const dup = await get(ref(database, `referrals/${referrerId}/${refereeKey}`))
+    if (dup.exists()) {
+      return false
+    }
+    const referralRef = ref(database, `referrals/${referrerId}/${refereeKey}`)
     await set(referralRef, {
       ...referralData,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
     })
-    
-    // Update referral count
+
     const userRef = ref(database, `users/${referrerId}`)
     const snapshot = await get(userRef)
     if (snapshot.exists()) {
       const currentCount = snapshot.val().referrals || 0
       await update(userRef, { referrals: currentCount + 1 })
     }
-    
     return true
   } catch (error) {
     console.error('Error saving referral:', error)
@@ -144,7 +174,7 @@ export const getReferralsFromFirebase = async (userId) => {
     const snapshot = await get(ref(database, `referrals/${userId}`))
     if (snapshot.exists()) {
       const referrals = snapshot.val()
-      return Object.keys(referrals).map(key => referrals[key])
+      return Object.keys(referrals).map((key) => referrals[key])
     }
     return []
   } catch (error) {
@@ -153,15 +183,14 @@ export const getReferralsFromFirebase = async (userId) => {
   }
 }
 
-// Subscribe to users (real-time)
 export const subscribeToUsers = (callback) => {
   const usersRef = ref(database, 'users')
   return onValue(usersRef, (snapshot) => {
     if (snapshot.exists()) {
       const users = snapshot.val()
-      const usersArray = Object.keys(users).map(key => ({
+      const usersArray = Object.keys(users).map((key) => ({
         id: key,
-        ...users[key]
+        ...users[key],
       }))
       callback(usersArray)
     } else {
@@ -170,7 +199,6 @@ export const subscribeToUsers = (callback) => {
   })
 }
 
-// Subscribe to single user (real-time)
 export const subscribeToUser = (userId, callback) => {
   const userRef = ref(database, `users/${userId}`)
   return onValue(userRef, (snapshot) => {

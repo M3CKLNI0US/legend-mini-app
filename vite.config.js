@@ -6,7 +6,14 @@ export default defineConfig({
   server: {
     port: 4000,
     open: false,
-    host: true
+    host: true,
+    proxy: {
+      // Локально: запустите `npx vercel dev` (порт 3000) для работы /api
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

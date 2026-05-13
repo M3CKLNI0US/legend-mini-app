@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { saveUserToFirebase, getUserFromFirebase, savePhoneToFirebase, getPhoneFromFirebase } from '../firebase'
+import { extractPhoneFromContactPayload, normalizeRussianPhone } from '../utils/extractTelegramContactPhone'
 
 export function useTelegramApp() {
   const [user, setUser] = useState(null)
   const [isReady, setIsReady] = useState(false)
   const [webApp, setWebApp] = useState(null)
+  const [initData, setInitData] = useState('')
 
   useEffect(() => {
     // Получи Telegram WebApp объект
@@ -12,6 +14,7 @@ export function useTelegramApp() {
 
     if (tg) {
       setWebApp(tg)
+      setInitData(tg.initData || '')
 
       // Готовое приложение
       tg.ready()
@@ -21,32 +24,36 @@ export function useTelegramApp() {
         document.documentElement.style.colorScheme = 'dark'
       }
 
-      // Получи информацию о пользователе
-      if (tg.initData && tg.initDataUnsafe) {
+      // initData может быть пустым в отладке, но initDataUnsafe.user часто есть
+      if (tg.initDataUnsafe?.user) {
         const userData = tg.initDataUnsafe.user
         setUser(userData || null)
-        
-        // Автоматически регистрируем пользователя в Firebase
+
         if (userData?.id) {
           const registerUser = async () => {
-            // Проверяем существующего пользователя
             const existingUser = await getUserFromFirebase(userData.id)
-            
+
             const userRecord = {
               name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Без имени',
               username: userData.username || null,
               id: userData.id,
               level: existingUser?.level || 'newbie',
               status: existingUser?.status || 'active',
-              referrals: existingUser?.referrals || 0,
+              referrals: existingUser?.referrals ?? 0,
               joinedAt: existingUser?.joinedAt || new Date().toISOString(),
-              lastVisit: new Date().toISOString()
+              lastVisit: new Date().toISOString(),
+              notificationsEnabled: existingUser?.notificationsEnabled !== false,
+              smsNotifications: !!existingUser?.smsNotifications,
+              themePreference: existingUser?.themePreference || 'auto',
+              language: existingUser?.language || 'ru',
+              phoneVerified: !!existingUser?.phoneVerified,
+              phone: existingUser?.phone || null,
             }
-            
+
             await saveUserToFirebase(userRecord)
             console.log('User registered in Firebase:', userData.id)
           }
-          
+
           registerUser().catch(console.error)
         }
       }
@@ -85,7 +92,11 @@ export function useTelegramApp() {
         status: 'active',
         referrals: 5,
         joinedAt: new Date().toISOString(),
-        lastVisit: new Date().toISOString()
+        lastVisit: new Date().toISOString(),
+        notificationsEnabled: true,
+        smsNotifications: false,
+        themePreference: 'auto',
+        language: 'ru',
       }).catch(console.error)
       
       setIsReady(true)
@@ -147,92 +158,80 @@ export function useTelegramApp() {
     }
   }
 
-  // Запрос контакта (телефона) с проверкой на российский номер
+  // Запрос контакта (телефона) через Telegram + разбор разных форматов ответа
   const requestPhoneNumber = async () => {
     return new Promise((resolve) => {
-      console.log('Starting phone verification...')
-      
       if (!webApp) {
-        console.log('No webApp - running in local mode')
-        // Локальный режим - эмулируем
         const testPhone = '+79001234567'
         localStorage.setItem('legend_phone', testPhone)
         resolve({ success: true, phone: testPhone, isRussian: true })
         return
       }
 
-      console.log('WebApp version:', webApp.version)
-      console.log('WebApp platform:', webApp.platform)
-
-      // Проверяем поддержку requestContact
       if (!webApp.requestContact) {
-        console.error('requestContact not available')
-        showAlert('❌ Ваша версия Telegram не поддерживает запрос контакта. Обновите Telegram.')
+        showAlert(
+          '❌ В этой версии Telegram недоступен запрос контакта. Обновите приложение или введите номер вручную ниже.'
+        )
         resolve({ success: false, error: 'requestContact not supported' })
         return
       }
 
-      console.log('Calling requestContact...')
+      let settled = false
+      const finish = (payload) => {
+        if (settled) return
+        settled = true
+        try {
+          webApp.offEvent('contactRequested', onContactRequested)
+        } catch {
+          /* ignore */
+        }
+        resolve(payload)
+      }
 
-      // Сразу запрашиваем контакт через Telegram (без промежуточного popup)
+      const onContactRequested = (e) => {
+        if (settled) return
+        if (e?.status === 'cancelled') {
+          finish({ success: false, error: 'User declined' })
+        }
+      }
+
+      try {
+        webApp.onEvent('contactRequested', onContactRequested)
+      } catch {
+        /* старые клиенты без события */
+      }
+
       try {
         webApp.requestContact((sent, event) => {
-          console.log('Contact request callback:', { sent, event })
-          console.log('Event type:', typeof event)
-          console.log('Event keys:', event ? Object.keys(event) : 'null')
-          
-          if (event?.response) {
-            console.log('Response:', event.response)
-            console.log('Contact:', event.response.contact)
+          const phone = extractPhoneFromContactPayload(sent, event)
+          if (phone) {
+            localStorage.setItem('legend_phone', phone)
+            try {
+              webApp.HapticFeedback?.notificationOccurred?.('success')
+            } catch {
+              /* ignore */
+            }
+            finish({ success: true, phone, isRussian: true })
+            return
           }
-          
-          // sent = true/false - разрешил ли пользователь доступ
-          // event содержит response с contact или ошибку
-          
-          if (sent === true && event?.response?.contact) {
-            const contact = event.response.contact
-            const phone = contact.phone_number
-            
-            console.log('Got phone:', phone)
-            
-            if (!phone) {
-              resolve({ success: false, error: 'No phone number in contact' })
-              return
-            }
-            
-            // Проверяем что номер российский (+7 или 8)
-            const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
-            
-            console.log('Is Russian:', isRussian, 'Phone:', phone)
-            
-            if (isRussian) {
-              // Нормализуем номер к формату +7...
-              let normalizedPhone = phone
-              if (phone.startsWith('8') && phone.length === 11) {
-                normalizedPhone = '+7' + phone.slice(1)
-              } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
-                normalizedPhone = '+7' + phone.slice(1)
-              }
-              
-              localStorage.setItem('legend_phone', normalizedPhone)
-              resolve({ success: true, phone: normalizedPhone, isRussian: true })
-            } else {
-              showAlert('❌ Требуется российский номер телефона (+7...)')
-              resolve({ success: false, phone, isRussian: false, error: 'Not Russian number' })
-            }
-          } else if (sent === false) {
-            // Пользователь отказался
-            resolve({ success: false, error: 'User declined' })
-          } else {
-            // Неизвестная ошибка или старая версия API
-            console.error('Unexpected requestContact result:', sent, event)
-            resolve({ success: false, error: 'Unknown error' })
+
+          if (sent === false) {
+            finish({ success: false, error: 'User declined' })
+            return
+          }
+
+          if (sent === true) {
+            console.warn('requestContact: sent=true but phone not parsed', event)
+            showAlert(
+              'Не удалось прочитать номер из ответа Telegram. Введите номер вручную в поле ниже или обновите Telegram.'
+            )
+            finish({ success: false, error: 'No phone in response' })
           }
         })
       } catch (e) {
         console.error('Error requesting contact:', e)
-        showAlert('❌ Ошибка при запросе контакта: ' + e.message)
-        resolve({ success: false, error: e.message })
+        showAlert('❌ Ошибка при запросе контакта: ' + (e?.message || String(e)))
+        finish({ success: false, error: e?.message || 'requestContact error' })
       }
     })
   }
@@ -255,31 +254,21 @@ export function useTelegramApp() {
         webApp.requestContact((sent, event) => {
           webApp.MainButton.hide()
           webApp.MainButton.onClick(originalOnClick || (() => {}))
-          
-          if (sent && event?.response?.contact?.phone_number) {
-            const phone = event.response.contact.phone_number
-            const isRussian = phone.startsWith('+7') || phone.startsWith('7') || phone.startsWith('8')
-            
-            if (isRussian) {
-              let normalizedPhone = phone
-              if (phone.startsWith('8') && phone.length === 11) {
-                normalizedPhone = '+7' + phone.slice(1)
-              } else if (phone.startsWith('7') && !phone.startsWith('+7')) {
-                normalizedPhone = '+7' + phone.slice(1)
-              }
-              
-              // Сохраняем в Firebase
-              if (user?.id) {
-                savePhoneToFirebase(user.id, normalizedPhone)
-              }
-              localStorage.setItem('legend_phone', normalizedPhone) // fallback
-              resolve({ success: true, phone: normalizedPhone, isRussian: true })
-            } else {
-              showAlert('❌ Требуется российский номер телефона (+7...)')
-              resolve({ success: false, error: 'Not Russian number' })
+
+          const phone = extractPhoneFromContactPayload(sent, event)
+          if (phone) {
+            if (user?.id) {
+              savePhoneToFirebase(user.id, phone)
             }
-          } else {
+            localStorage.setItem('legend_phone', phone)
+            resolve({ success: true, phone, isRussian: true })
+            return
+          }
+
+          if (sent === false) {
             resolve({ success: false, error: 'User declined' })
+          } else {
+            resolve({ success: false, error: 'No phone in response' })
           }
         })
       })
@@ -304,18 +293,10 @@ export function useTelegramApp() {
 
   // Валидация ручного ввода номера
   const validateRussianPhone = (phone) => {
-    // Убираем все нецифры
-    const digits = phone.replace(/\D/g, '')
-    
-    // Проверяем длину и код страны
-    if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
-      return { valid: true, normalized: '+7' + digits.slice(1) }
+    const normalized = normalizeRussianPhone(phone)
+    if (normalized) {
+      return { valid: true, normalized }
     }
-    if (digits.length === 10) {
-      // Нет кода страны - добавляем +7
-      return { valid: true, normalized: '+7' + digits }
-    }
-    
     return { valid: false, error: 'Неверный формат. Введите российский номер (+7...)' }
   }
 
@@ -323,6 +304,7 @@ export function useTelegramApp() {
     user,
     isReady,
     webApp,
+    initData,
     showAlert,
     showConfirm,
     close,

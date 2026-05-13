@@ -13,24 +13,24 @@ export default function ReferralSystem({ referralCount, setReferralCount }) {
 
   // Синхронизация с Firebase
   useEffect(() => {
-    if (user?.id) {
-      // Подписываемся на изменения пользователя
-      const unsubscribe = subscribeToUser(user.id, (userData) => {
-        if (userData) {
-          setFirebaseReferralCount(userData.referrals || 0)
-          // Обновляем referralCount если передан setReferralCount
-          if (setReferralCount) {
-            setReferralCount(userData.referrals || 0)
-          }
+    if (!user?.id) return undefined
+
+    const unsubscribe = subscribeToUser(user.id, (userData) => {
+      if (userData) {
+        setFirebaseReferralCount(userData.referrals || 0)
+        if (setReferralCount) {
+          setReferralCount(userData.referrals || 0)
         }
-      })
-      
-      // Проверяем номер телефона
-      const phone = getSavedPhone()
+      }
+    })
+
+    const syncPhone = async () => {
+      const phone = await getSavedPhone()
       setHasPhone(!!phone)
-      
-      return () => unsubscribe()
     }
+    syncPhone()
+
+    return () => unsubscribe()
   }, [user?.id, setReferralCount, getSavedPhone])
 
   // Обработка входящего реферального кода
