@@ -8,6 +8,11 @@ export default function AdminPanel() {
   const { user, showAlert, initData } = useTelegramApp()
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [cardSearchQuery, setCardSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('name') // name, id, referrals, bonus, joined
+  const [sortOrder, setSortOrder] = useState('asc') // asc, desc
+  const [currentPage, setCurrentPage] = useState(1)
+  const [usersPerPage] = useState(10)
   const [selectedUserId, setSelectedUserId] = useState(null)
   const [filter, setFilter] = useState('all') // all, active, blocked, pending
   const [loading, setLoading] = useState(true)
@@ -248,14 +253,73 @@ export default function AdminPanel() {
     if (filter === 'pending') return u.status === 'pending'
     return true
   }).filter(u => {
-    if (!searchQuery) return true
+    if (!searchQuery && !cardSearchQuery) return true
+    
     const query = searchQuery.toLowerCase()
-    return (
+    const cardQuery = cardSearchQuery.toLowerCase()
+    
+    const matchesGeneral = !searchQuery || (
       u.name?.toLowerCase().includes(query) ||
       u.id?.includes(query) ||
       u.phone?.includes(query)
     )
+    
+    const matchesCard = !cardSearchQuery || (
+      u.cardNumber?.includes(cardQuery)
+    )
+    
+    return matchesGeneral && matchesCard
+  }).sort((a, b) => {
+    let aVal, bVal
+    
+    switch (sortBy) {
+      case 'name':
+        aVal = a.name || ''
+        bVal = b.name || ''
+        break
+      case 'id':
+        aVal = parseInt(a.id) || 0
+        bVal = parseInt(b.id) || 0
+        break
+      case 'referrals':
+        aVal = a.referrals || 0
+        bVal = b.referrals || 0
+        break
+      case 'bonus':
+        aVal = a.bonusBalance || 0
+        bVal = b.bonusBalance || 0
+        break
+      case 'joined':
+        aVal = new Date(a.joinedAt || 0).getTime()
+        bVal = new Date(b.joinedAt || 0).getTime()
+        break
+      default:
+        return 0
+    }
+    
+    if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase()
+      bVal = bVal.toLowerCase()
+    }
+    
+    if (sortOrder === 'asc') {
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
+    } else {
+      return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+    }
   })
+
+  // Пагинация
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage)
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * usersPerPage,
+    currentPage * usersPerPage
+  )
+
+  // Сброс страницы при изменении фильтров
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, cardSearchQuery, filter, sortBy, sortOrder])
 
   // Статистика
   const stats = {
@@ -389,20 +453,30 @@ export default function AdminPanel() {
 
       {/* Search and Filter */}
       <div className="space-y-3">
-        <input
-          type="text"
-          placeholder="Поиск по имени, ID или телефону..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full card-premium bg-legend-black border border-legend-wenge px-4 py-3 text-legend-light rounded outline-none focus:border-legend-gold"
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            type="text"
+            placeholder="Поиск по имени, ID или телефону..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full card-premium bg-legend-black border border-legend-wenge px-4 py-3 text-legend-light rounded outline-none focus:border-legend-gold"
+          />
+          <input
+            type="text"
+            placeholder="Поиск по номеру карты (0000-9999)..."
+            value={cardSearchQuery}
+            onChange={(e) => setCardSearchQuery(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            className="w-full card-premium bg-legend-black border border-legend-wenge px-4 py-3 text-legend-light rounded outline-none focus:border-legend-gold font-mono"
+            maxLength={4}
+          />
+        </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['all', 'active', 'blocked', 'pending'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`flex-1 py-2 text-xs rounded border transition-all ${
+              className={`flex-1 min-w-0 py-2 text-xs rounded border transition-all ${
                 filter === f
                   ? 'bg-legend-gold/20 border-legend-gold text-legend-gold'
                   : 'border-legend-wenge text-legend-light/60'
@@ -415,62 +489,180 @@ export default function AdminPanel() {
             </button>
           ))}
         </div>
+
+        {/* Sort Controls */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-legend-light/60">Сортировка:</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-legend-deep border border-legend-wenge rounded px-2 py-1 text-xs text-legend-light"
+          >
+            <option value="name">По имени</option>
+            <option value="id">По ID</option>
+            <option value="referrals">По рефералам</option>
+            <option value="bonus">По бонусам</option>
+            <option value="joined">По дате регистрации</option>
+          </select>
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="rounded border border-legend-wenge px-2 py-1 text-xs text-legend-light/60 hover:border-legend-gold"
+          >
+            {sortOrder === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
       </div>
 
       {/* Users List */}
       <div className="space-y-3">
-        <p className="text-legend-gold text-sm font-bold uppercase">Пользователи ({filteredUsers.length})</p>
+        <div className="flex items-center justify-between">
+          <p className="text-legend-gold text-sm font-bold uppercase">
+            Пользователи ({filteredUsers.length}) • Страница {currentPage} из {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setCardSearchQuery('')
+                setFilter('all')
+                setSortBy('name')
+                setSortOrder('asc')
+                setCurrentPage(1)
+              }}
+              className="rounded border border-legend-wenge px-2 py-1 text-xs text-legend-light/60 hover:border-legend-gold"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
+        </div>
         
-        {filteredUsers.map((userData) => (
+        {paginatedUsers.map((userData) => (
           <div
             key={userData.id}
-            onClick={() =>
-              setSelectedUserId(String(selectedUserId) === String(userData.id) ? null : String(userData.id))
-            }
-            className={`card-premium cursor-pointer transition-all ${
+            className={`card-premium transition-all ${
               userData.status === 'blocked' ? 'border-red-900/50 bg-red-900/10' : ''
-            } ${String(selectedUserId) === String(userData.id) ? 'border-legend-gold' : ''}`}
+            } ${String(selectedUserId) === String(userData.id) ? 'border-legend-gold ring-1 ring-legend-gold/30' : ''}`}
           >
-            {/* User Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm ${
-                  userData.status === 'blocked' ? 'bg-red-900/30 text-red-400' :
-                  userData.level === 'legend' ? 'bg-legend-gold/30 text-legend-gold' :
-                  userData.level === 'elder' ? 'bg-legend-brass/30 text-legend-brass' :
-                  'bg-legend-wenge/30 text-legend-light'
-                }`}>
-                  {userData.status === 'blocked' ? '⚠️' : 
-                   userData.level === 'legend' ? '◆◆◆' :
-                   userData.level === 'elder' ? '◆◆' :
-                   userData.level === 'guardian' ? '◇' : '◆'}
+            {/* User Header - Clickable */}
+            <div
+              onClick={() =>
+                setSelectedUserId(String(selectedUserId) === String(userData.id) ? null : String(userData.id))
+              }
+              className="cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                    userData.status === 'blocked' ? 'bg-red-900/30 text-red-400' :
+                    userData.level === 'legend' ? 'bg-legend-gold/30 text-legend-gold' :
+                    userData.level === 'elder' ? 'bg-legend-brass/30 text-legend-brass' :
+                    'bg-legend-wenge/30 text-legend-light'
+                  }`}>
+                    {userData.status === 'blocked' ? '⚠️' : 
+                     userData.level === 'legend' ? '◆◆◆' :
+                     userData.level === 'elder' ? '◆◆' :
+                     userData.level === 'guardian' ? '◇' : '◆'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-legend-light truncate">{userData.name || 'Без имени'}</p>
+                    <p className="text-xs text-legend-light/40">ID: {userData.id}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {userData.phone && (
+                        <span className="text-xs text-legend-gold">📱 {userData.phone}</span>
+                      )}
+                      <span className="text-xs text-legend-light/60 font-mono">
+                        💳 {userData.cardNumber || defaultCardNumberFromUserId(userData.id)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-legend-light">{userData.name || 'Без имени'}</p>
-                  <p className="text-xs text-legend-light/40">ID: {userData.id}</p>
-                  {userData.phone && (
-                    <p className="text-xs text-legend-gold">{userData.phone}</p>
-                  )}
+                <div className="text-right">
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    userData.status === 'active' ? 'bg-green-900/30 text-green-400' :
+                    userData.status === 'blocked' ? 'bg-red-900/30 text-red-400' :
+                    'bg-legend-brass/30 text-legend-brass'
+                  }`}>
+                    {userData.status === 'active' ? '✓ Активен' :
+                     userData.status === 'blocked' ? '⛔ Заблокирован' : '⏳ Ожидание'}
+                  </span>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-legend-light/60">
+                    <span>👥 {userData.referrals || 0}</span>
+                    <span>💰 {(userData.bonusBalance || 0).toLocaleString('ru-RU')}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <span className={`text-xs px-2 py-1 rounded ${
-                  userData.status === 'active' ? 'bg-green-900/30 text-green-400' :
-                  userData.status === 'blocked' ? 'bg-red-900/30 text-red-400' :
-                  'bg-legend-brass/30 text-legend-brass'
-                }`}>
-                  {userData.status === 'active' ? '✓ Активен' :
-                   userData.status === 'blocked' ? '⛔ Заблокирован' : '⏳ Ожидание'}
-                </span>
-                <p className="text-xs text-legend-light/40 mt-1">
-                  Рефералы: {userData.referrals || 0} · Карта:{' '}
-                  <span className="font-mono text-legend-gold/90">
-                    {userData.cardNumber || defaultCardNumberFromUserId(userData.id)}
-                  </span>{' '}
-                  · Бонус: {(Number(userData.bonusBalance) || 0).toLocaleString('ru-RU')} ₽
-                </p>
               </div>
             </div>
+
+            {/* Quick Actions - Always visible */}
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-legend-wenge/30">
+              <div className="flex gap-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    addReferral(userData.id)
+                  }}
+                  className="rounded border border-green-700/50 bg-green-900/20 px-2 py-1 text-xs text-green-400 hover:bg-green-900/30"
+                  title="Добавить реферала"
+                >
+                  +👥
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeReferral(userData.id)
+                  }}
+                  className="rounded border border-red-700/50 bg-red-900/20 px-2 py-1 text-xs text-red-400 hover:bg-red-900/30"
+                  title="Убрать реферала"
+                >
+                  -👥
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    applyBonusDelta(userData.id, 100)
+                  }}
+                  className="rounded border border-legend-gold/50 bg-legend-gold/10 px-2 py-1 text-xs text-legend-gold hover:bg-legend-gold/20"
+                  title="+100 ₽ бонусов"
+                >
+                  +💰
+                </button>
+              </div>
+              
+              <div className="flex gap-1">
+                {userData.status === 'blocked' ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      unblockUser(userData.id)
+                    }}
+                    className="rounded border border-green-700/50 bg-green-900/20 px-3 py-1 text-xs text-green-400"
+                  >
+                    Разблокировать
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const reason = prompt('Причина блокировки:')
+                      if (reason) blockUser(userData.id, reason)
+                    }}
+                    className="rounded border border-red-700/50 bg-red-900/20 px-3 py-1 text-xs text-red-400"
+                  >
+                    Заблокировать
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Expanded Details */}
+            {String(selectedUserId) === String(userData.id) && (
+              <div className="mt-4 pt-4 border-t border-legend-wenge/50 space-y-4">
+                <p className="text-xs text-legend-light/60">
+                  Регистрация: {userData.joinedAt || 'Неизвестно'} · 
+                  Бонус: {(Number(userData.bonusBalance) || 0).toLocaleString('ru-RU')} ₽
+                </p>
+              </div>
+            )}
 
             {/* Expanded Actions */}
             {String(selectedUserId) === String(userData.id) && (
@@ -777,6 +969,48 @@ export default function AdminPanel() {
           </div>
         ))}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 py-4">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-2 rounded border border-legend-wenge text-legend-light/60 disabled:opacity-50 disabled:cursor-not-allowed hover:border-legend-gold"
+          >
+            ‹ Пред
+          </button>
+          
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i
+              if (pageNum > totalPages) return null
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`px-3 py-2 rounded border ${
+                    currentPage === pageNum
+                      ? 'bg-legend-gold/20 border-legend-gold text-legend-gold'
+                      : 'border-legend-wenge text-legend-light/60 hover:border-legend-gold'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              )
+            })}
+          </div>
+          
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 rounded border border-legend-wenge text-legend-light/60 disabled:opacity-50 disabled:cursor-not-allowed hover:border-legend-gold"
+          >
+            След ›
+          </button>
+        </div>
+      )}
 
       {/* Export Data */}
       <button
