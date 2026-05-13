@@ -1,16 +1,21 @@
-import React from 'react'
-
-const navItems = [
-  { id: 'profile', icon: '💎', label: 'Профиль' },
-  { id: 'referral', icon: '👥', label: 'Рефералы' },
-  { id: 'booking', icon: '📅', label: 'Запись' },
-  { id: 'settings', icon: '⚙️', label: 'Настройки' },
-]
+import React, { useMemo } from 'react'
+import { usePreferences } from '../context/PreferencesContext'
 
 export default function BottomNavigation({ currentPage, setCurrentPage, isAdmin }) {
-  const items = isAdmin 
-    ? [...navItems.slice(0, 3), { id: 'admin', icon: '👑', label: 'Админ' }, navItems[3]]
-    : navItems
+  const { t } = usePreferences()
+
+  const items = useMemo(() => {
+    const base = [
+      { id: 'profile', icon: '💎', label: t('nav_profile') },
+      { id: 'referral', icon: '👥', label: t('nav_referral') },
+      { id: 'booking', icon: '📅', label: t('nav_booking') },
+      { id: 'settings', icon: '⚙️', label: t('nav_settings') },
+    ]
+    if (isAdmin) {
+      return [...base.slice(0, 3), { id: 'admin', icon: '👑', label: t('nav_admin') }, base[3]]
+    }
+    return base
+  }, [isAdmin, t])
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-around border-t border-legend-wenge/50 bg-legend-deep/90 px-1 pt-2 shadow-legend-nav backdrop-blur-xl supports-[backdrop-filter]:bg-legend-deep/75 pb-[max(0.5rem,env(safe-area-inset-bottom))]">

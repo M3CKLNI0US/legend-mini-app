@@ -1,14 +1,16 @@
-import React from 'react'
-
-const levelInfo = {
-  newbie: { name: 'Новобранец', icon: '◆', color: 'text-legend-brass' },
-  guardian: { name: 'Хранитель Клуба', icon: '◇', color: 'text-legend-gold' },
-  elder: { name: 'Старейшина', icon: '◆◆', color: 'text-legend-gold' },
-  legend: { name: 'Легенда', icon: '◆◆◆', color: 'text-legend-gold' },
-}
+import React, { useMemo } from 'react'
+import { getLevelTiers } from '../i18n/levels'
+import { usePreferences } from '../context/PreferencesContext'
 
 export default function Header({ userLevel }) {
-  const level = levelInfo[userLevel] || levelInfo.newbie
+  const { language, t } = usePreferences()
+  const level = useMemo(() => {
+    const tiers = getLevelTiers(language)
+    return tiers.find((x) => x.id === userLevel) || tiers[0]
+  }, [userLevel, language])
+
+  const colorClass =
+    userLevel === 'newbie' ? 'text-legend-brass' : 'text-legend-gold'
 
   return (
     <header className="sticky top-0 z-40 border-b border-legend-wenge/40 bg-legend-black/80 px-4 py-3 backdrop-blur-xl supports-[backdrop-filter]:bg-legend-black/55">
@@ -19,16 +21,16 @@ export default function Header({ userLevel }) {
           </div>
           <div>
             <p className="font-serif text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-legend-gold/70">
-              Клуб
+              {t('club_label')}
             </p>
             <p className="font-serif text-base font-bold leading-tight tracking-wide text-legend-light">
-              ЛЕГЕНДА
+              {t('brand_title')}
             </p>
           </div>
         </div>
 
         <div className="text-right">
-          <p className={`text-base font-bold leading-none ${level.color}`}>{level.icon}</p>
+          <p className={`text-base font-bold leading-none ${colorClass}`}>{level.icon}</p>
           <p className="mt-1 max-w-[9rem] truncate text-[0.65rem] font-medium uppercase tracking-wide text-legend-light/50">
             {level.name}
           </p>

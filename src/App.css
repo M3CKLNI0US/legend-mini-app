@@ -80,3 +80,53 @@
     padding-bottom: max(0px, env(safe-area-inset-bottom));
   }
 }
+
+/* Светлая тема: светлый фон снаружи, карточки остаются тёмными */
+.light-theme {
+  background-color: #e8e2d8 !important;
+  background-image: radial-gradient(
+      ellipse 120% 80% at 50% -20%,
+      rgba(198, 169, 107, 0.14) 0%,
+      transparent 50%
+    ),
+    radial-gradient(ellipse 80% 50% at 100% 100%, rgba(139, 107, 63, 0.1) 0%, transparent 45%) !important;
+  color: #1a1814 !important;
+}
+
+.light-theme header {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light-theme header .text-legend-light,
+.light-theme header .text-legend-light\/50,
+.light-theme header .text-legend-light\/70,
+.light-theme header .text-legend-gold\/70 {
+  color: rgba(26, 24, 20, 0.85) !important;
+}
+
+.light-theme header .text-legend-gold-bright {
+  color: #5c4a2a !important;
+}
+
+.light-theme nav {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.light-theme nav .text-legend-light\/45,
+.light-theme nav .text-legend-light\/85 {
+  color: rgba(26, 24, 20, 0.65) !important;
+}
+
+.light-theme nav .text-legend-gold-bright {
+  color: #6b5228 !important;
+}
+
+.light-theme ::-webkit-scrollbar-track {
+  background: #dcd6cc;
+}
+
+.light-theme ::-webkit-scrollbar-thumb {
+  border-color: #dcd6cc;
+}

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
-import { updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers, savePhoneToFirebase } from '../firebase'
+import { updateUserInFirebase, deleteUserFromFirebase, subscribeToUsers, savePhoneToFirebase, defaultCardNumberFromUserId, parseCardNumberInput } from '../firebase'
 
 const ADMIN_USER_ID = '1100054796' // ID владельца
 
@@ -8,9 +8,22 @@ export default function AdminPanel() {
   const { user, showAlert, initData } = useTelegramApp()
   const [users, setUsers] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUser, setSelectedUser] = useState(null)
+  const [selectedUserId, setSelectedUserId] = useState(null)
   const [filter, setFilter] = useState('all') // all, active, blocked, pending
   const [loading, setLoading] = useState(true)
+  const [cardInput, setCardInput] = useState('')
+  const [bonusInput, setBonusInput] = useState('')
+
+  const selectedUser = useMemo(
+    () => (selectedUserId == null ? null : users.find((u) => String(u.id) === String(selectedUserId)) || null),
+    [users, selectedUserId]
+  )
+
+  useEffect(() => {
+    if (!selectedUser) return
+    setCardInput(selectedUser.cardNumber || defaultCardNumberFromUserId(selectedUser.id))
+    setBonusInput('')
+  }, [selectedUser?.id, selectedUser?.cardNumber, selectedUser?.bonusBalance])
 
   // Проверка что текущий пользователь - админ
   const isAdmin = user?.id?.toString() === ADMIN_USER_ID
@@ -105,6 +118,52 @@ export default function AdminPanel() {
     } else {
       showAlert('❌ Ошибка сохранения телефона')
     }
+  }
+
+  const saveCardNumber = async (e, userId) => {
+    e.stopPropagation()
+    const p = parseCardNumberInput(cardInput)
+    if (!p) {
+      showAlert('Номер карты: ровно 4 цифры от 0000 до 9999')
+      return
+    }
+    const ok = await updateUserInFirebase(userId, { cardNumber: p })
+    if (ok) {
+      setUsers((prev) => prev.map((u) => (String(u.id) === String(userId) ? { ...u, cardNumber: p } : u)))
+      showAlert('✓ Номер карты сохранён')
+    } else {
+      showAlert('❌ Ошибка сохранения карты')
+    }
+  }
+
+  const applyBonusDelta = async (userId, delta) => {
+    const u = users.find((x) => String(x.id) === String(userId))
+    const cur = Number(u?.bonusBalance) || 0
+    const next = Math.round((cur + delta) * 100) / 100
+    if (next < 0) {
+      showAlert('Недостаточно средств на бонусном счёте')
+      return
+    }
+    const ok = await updateUserInFirebase(userId, { bonusBalance: next })
+    if (ok) {
+      setUsers((prev) =>
+        prev.map((x) => (String(x.id) === String(userId) ? { ...x, bonusBalance: next } : x))
+      )
+      showAlert(delta >= 0 ? `✓ Начислено ${delta} ₽` : `✓ Списано ${-delta} ₽`)
+    } else {
+      showAlert('❌ Ошибка сохранения бонуса')
+    }
+  }
+
+  const applyBonusFromField = async (e, userId) => {
+    e.stopPropagation()
+    const n = parseFloat(String(bonusInput).replace(',', '.'))
+    if (Number.isNaN(n) || n === 0) {
+      showAlert('Введите сумму (число)')
+      return
+    }
+    await applyBonusDelta(userId, n)
+    setBonusInput('')
   }
 
   // Фильтрация пользователей
@@ -208,10 +267,12 @@ export default function AdminPanel() {
         {filteredUsers.map((userData) => (
           <div
             key={userData.id}
-            onClick={() => setSelectedUser(selectedUser?.id === userData.id ? null : userData)}
+            onClick={() =>
+              setSelectedUserId(String(selectedUserId) === String(userData.id) ? null : String(userData.id))
+            }
             className={`card-premium cursor-pointer transition-all ${
               userData.status === 'blocked' ? 'border-red-900/50 bg-red-900/10' : ''
-            } ${selectedUser?.id === userData.id ? 'border-legend-gold' : ''}`}
+            } ${String(selectedUserId) === String(userData.id) ? 'border-legend-gold' : ''}`}
           >
             {/* User Header */}
             <div className="flex items-center justify-between">
@@ -244,12 +305,18 @@ export default function AdminPanel() {
                   {userData.status === 'active' ? '✓ Активен' :
                    userData.status === 'blocked' ? '⛔ Заблокирован' : '⏳ Ожидание'}
                 </span>
-                <p className="text-xs text-legend-light/40 mt-1">Рефералы: {userData.referrals || 0}</p>
+                <p className="text-xs text-legend-light/40 mt-1">
+                  Рефералы: {userData.referrals || 0} · Карта:{' '}
+                  <span className="font-mono text-legend-gold/90">
+                    {userData.cardNumber || defaultCardNumberFromUserId(userData.id)}
+                  </span>{' '}
+                  · Бонус: {(Number(userData.bonusBalance) || 0).toLocaleString('ru-RU')} ₽
+                </p>
               </div>
             </div>
 
             {/* Expanded Actions */}
-            {selectedUser?.id === userData.id && (
+            {String(selectedUserId) === String(userData.id) && (
               <div className="mt-4 pt-4 border-t border-legend-wenge/30 space-y-3">
                 {/* User Details */}
                 <div className="text-xs text-legend-light/60 space-y-1">
@@ -357,6 +424,100 @@ export default function AdminPanel() {
                   )}
                 </div>
 
+                <div className="space-y-2 border-t border-legend-wenge/30 pt-3">
+                  <p className="text-xs font-bold text-legend-gold">Номер карты (0000–9999)</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={cardInput}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        setCardInput(e.target.value.replace(/\D/g, '').slice(0, 4))
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-10 w-24 bg-legend-deep border border-legend-wenge rounded px-2 text-center font-mono text-legend-gold font-bold tracking-widest"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => saveCardNumber(e, userData.id)}
+                      className="flex-1 h-10 rounded border border-legend-gold bg-legend-gold/15 text-sm text-legend-gold"
+                    >
+                      Сохранить карту
+                    </button>
+                  </div>
+                  <p className="text-xs text-legend-light/50">
+                    Текущий бонус:{' '}
+                    <span className="font-mono text-legend-gold">
+                      {(Number(userData.bonusBalance) || 0).toLocaleString('ru-RU')} ₽
+                    </span>
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        applyBonusDelta(userData.id, 100)
+                      }}
+                      className="rounded border border-green-700/50 bg-green-900/20 px-2 py-1.5 text-xs text-green-400"
+                    >
+                      +100 ₽
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        applyBonusDelta(userData.id, 500)
+                      }}
+                      className="rounded border border-green-700/50 bg-green-900/20 px-2 py-1.5 text-xs text-green-400"
+                    >
+                      +500 ₽
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        applyBonusDelta(userData.id, -100)
+                      }}
+                      className="rounded border border-red-700/50 bg-red-900/20 px-2 py-1.5 text-xs text-red-400"
+                    >
+                      −100 ₽
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        applyBonusDelta(userData.id, -500)
+                      }}
+                      className="rounded border border-red-700/50 bg-red-900/20 px-2 py-1.5 text-xs text-red-400"
+                    >
+                      −500 ₽
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Сумма ±"
+                      value={bonusInput}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        setBonusInput(e.target.value)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="min-w-0 flex-1 h-10 rounded border border-legend-wenge bg-legend-deep px-2 text-sm text-legend-gold"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => applyBonusFromField(e, userData.id)}
+                      className="h-10 shrink-0 rounded border border-legend-brass bg-legend-brass/20 px-3 text-xs text-legend-brass"
+                    >
+                      Применить
+                    </button>
+                  </div>
+                </div>
+
                 {/* Block/Unblock Actions */}
                 <div className="flex gap-2">
                   {userData.status === 'blocked' ? (
@@ -387,7 +548,8 @@ export default function AdminPanel() {
                           if (confirm('Удалить пользователя?')) {
                             const success = await deleteUserFromFirebase(userData.id)
                             if (success) {
-                              setUsers(prev => prev.filter(u => u.id !== userData.id))
+                              setUsers((prev) => prev.filter((u) => u.id !== userData.id))
+                              setSelectedUserId(null)
                               showAlert('Пользователь удален')
                             } else {
                               showAlert('❌ Ошибка удаления')

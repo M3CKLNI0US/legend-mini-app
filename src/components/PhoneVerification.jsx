@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { useTelegramApp } from '../hooks/useTelegramApp'
 import { savePhoneToFirebase, getPhoneFromFirebase, clearPhoneVerificationInFirebase } from '../firebase'
 import { claimPendingReferral } from '../utils/referralRewards'
+import { usePreferences } from '../context/PreferencesContext'
 
 export default function PhoneVerification({ onVerified }) {
-  const { requestPhoneNumber, showAlert, user, validateRussianPhone } = useTelegramApp()
+  const { requestPhoneNumber, showAlert, user } = useTelegramApp()
+  const { t } = usePreferences()
   const [savedPhone, setSavedPhone] = useState(null)
   const [isVerified, setIsVerified] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [manualPhone, setManualPhone] = useState('')
-  const [manualBusy, setManualBusy] = useState(false)
 
   useEffect(() => {
     const loadPhone = async () => {
@@ -64,22 +64,10 @@ export default function PhoneVerification({ onVerified }) {
       showAlert('❌ Принимаются только российские номера (+7)')
     } else if (result.error === 'User declined') {
       showAlert('Вы отказались делиться номером')
-    }
-  }
-
-  const handleManualSubmit = async (e) => {
-    e.preventDefault()
-    const { valid, normalized, error } = validateRussianPhone(manualPhone)
-    if (!valid) {
-      showAlert(error || 'Неверный номер')
-      return
-    }
-    setManualBusy(true)
-    try {
-      await persistPhone(normalized)
-      setManualPhone('')
-    } finally {
-      setManualBusy(false)
+    } else if (result.error === 'requestContact not supported') {
+      /* уже показали */
+    } else if (result.error === 'No phone in response') {
+      /* уже показали в хуке */
     }
   }
 
@@ -90,10 +78,7 @@ export default function PhoneVerification({ onVerified }) {
       localStorage.removeItem('legend_phone')
       setSavedPhone(null)
       setIsVerified(false)
-      showAlert('Номер сброен. Подтвердите снова для записи и рефералов.')
-      if (onVerified) {
-        /* родитель может обновить флаги */
-      }
+      showAlert(t('phone_reset_ok'))
     } else {
       showAlert('❌ Не удалось сбросить номер')
     }
@@ -108,7 +93,7 @@ export default function PhoneVerification({ onVerified }) {
               🎉
             </div>
             <div>
-              <p className="text-sm font-bold text-green-400">Номер подтверждён</p>
+              <p className="text-sm font-bold text-green-400">{t('phone_ok')}</p>
               <p className="font-mono text-sm text-legend-gold-bright">{savedPhone}</p>
             </div>
           </div>
@@ -117,12 +102,9 @@ export default function PhoneVerification({ onVerified }) {
             onClick={handleClearPhone}
             className="shrink-0 rounded-lg border border-legend-wenge px-3 py-1.5 text-xs text-legend-light/60 transition-colors hover:border-red-500/50 hover:text-red-400"
           >
-            Сбросить
+            {t('phone_reset')}
           </button>
         </div>
-        <p className="mt-3 text-center text-xs text-green-400/80">
-          Можно записываться к мастеру и участвовать в реферальной программе.
-        </p>
       </div>
     )
   }
@@ -130,11 +112,8 @@ export default function PhoneVerification({ onVerified }) {
   return (
     <div className="space-y-4">
       <div className="card-premium border-legend-brass/50 bg-legend-wenge/20">
-        <p className="mb-2 text-sm font-bold text-legend-gold">Подтверждение номера</p>
-        <p className="text-xs text-legend-light/70">
-          Нужен российский номер (+7) для записи и реферальной программы. Сначала попробуйте кнопку Telegram — если не
-          сработает, введите номер вручную.
-        </p>
+        <p className="mb-2 text-sm font-bold text-legend-gold">{t('phone_title')}</p>
+        <p className="text-xs text-legend-light/70">{t('phone_desc')}</p>
       </div>
 
       <button
@@ -144,32 +123,12 @@ export default function PhoneVerification({ onVerified }) {
       >
         <div className="flex items-center justify-center gap-2">
           <span className="text-xl">📱</span>
-          <p className="text-center font-serif text-lg font-bold text-legend-gold">Поделиться номером через Telegram</p>
+          <p className="text-center font-serif text-lg font-bold text-legend-gold">{t('phone_btn')}</p>
         </div>
-        <p className="mt-1 text-center text-xs text-legend-light/60">Откроется системный запрос контакта</p>
+        <p className="mt-1 text-center text-xs text-legend-light/60">{t('phone_hint')}</p>
       </button>
 
-      <form onSubmit={handleManualSubmit} className="card-premium space-y-3 border-legend-wenge/60">
-        <p className="text-xs font-semibold uppercase tracking-wide text-legend-light/50">Или введите вручную</p>
-        <input
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          placeholder="+7 900 123-45-67"
-          value={manualPhone}
-          onChange={(ev) => setManualPhone(ev.target.value)}
-          className="w-full rounded-xl border border-legend-wenge bg-legend-black/50 px-3 py-3 font-mono text-sm text-legend-light outline-none focus:border-legend-gold"
-        />
-        <button
-          type="submit"
-          disabled={manualBusy}
-          className="btn-gold-filled w-full disabled:opacity-50"
-        >
-          {manualBusy ? 'Сохранение…' : 'Сохранить номер'}
-        </button>
-      </form>
-
-      <p className="text-center text-xs text-legend-light/40">Принимаются только номера России (+7).</p>
+      <p className="text-center text-xs text-legend-light/40">{t('phone_footer')}</p>
     </div>
   )
 }

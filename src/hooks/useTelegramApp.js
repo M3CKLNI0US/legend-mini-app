@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { saveUserToFirebase, getUserFromFirebase, savePhoneToFirebase, getPhoneFromFirebase } from '../firebase'
+import { saveUserToFirebase, getUserFromFirebase, savePhoneToFirebase, getPhoneFromFirebase, defaultCardNumberFromUserId } from '../firebase'
 import { extractPhoneFromContactPayload, normalizeRussianPhone } from '../utils/extractTelegramContactPhone'
 
 export function useTelegramApp() {
@@ -48,6 +48,8 @@ export function useTelegramApp() {
               language: existingUser?.language || 'ru',
               phoneVerified: !!existingUser?.phoneVerified,
               phone: existingUser?.phone || null,
+              cardNumber: existingUser?.cardNumber || defaultCardNumberFromUserId(userData.id),
+              bonusBalance: typeof existingUser?.bonusBalance === 'number' ? existingUser.bonusBalance : 0,
             }
 
             await saveUserToFirebase(userRecord)
@@ -97,6 +99,8 @@ export function useTelegramApp() {
         smsNotifications: false,
         themePreference: 'auto',
         language: 'ru',
+        cardNumber: defaultCardNumberFromUserId(123456789),
+        bonusBalance: 0,
       }).catch(console.error)
       
       setIsReady(true)

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useTelegramApp } from './hooks/useTelegramApp'
 import { getUserFromFirebase } from './firebase'
+import { PreferencesProvider, usePreferences } from './context/PreferencesContext'
 import Header from './components/Header'
 import Profile from './components/Profile'
 import ReferralSystem from './components/ReferralSystem'
@@ -13,15 +14,15 @@ import './App.css'
 
 const ADMIN_ID = '1100054796'
 
-export default function App() {
-  const { user, isReady, showAlert } = useTelegramApp()
+function AppShell({ tg }) {
+  const { user, isReady } = tg
+  const { themeEffective, t } = usePreferences()
   const [currentPage, setCurrentPage] = useState('profile')
-  const [userLevel, setUserLevel] = useState('newbie') // newbie, guardian, elder, legend
+  const [userLevel, setUserLevel] = useState('newbie')
   const [referralCount, setReferralCount] = useState(0)
-  const [userStatus, setUserStatus] = useState('active') // active, blocked, pending
+  const [userStatus, setUserStatus] = useState('active')
   const [blockReason, setBlockReason] = useState(null)
 
-  // Загрузка данных из localStorage при старте
   useEffect(() => {
     const storedCount = localStorage.getItem('legend_referral_count')
     if (storedCount) {
@@ -29,7 +30,6 @@ export default function App() {
     }
   }, [])
 
-  // Обновление уровня при изменении количества рефералов
   useEffect(() => {
     let newLevel = 'newbie'
     if (referralCount >= 30) {
@@ -40,46 +40,37 @@ export default function App() {
       newLevel = 'guardian'
     }
     setUserLevel(newLevel)
-    console.log('User level updated:', newLevel, 'Referrals:', referralCount)
   }, [referralCount])
 
-  // Проверка статуса пользователя из Firebase
   useEffect(() => {
     const checkUserStatus = async () => {
       if (user?.id) {
-        console.log('User ID:', user.id)
         const userData = await getUserFromFirebase(user.id)
         if (userData) {
           setUserStatus(userData.status || 'active')
           setBlockReason(userData.blockReason || null)
           setUserLevel(userData.level || 'newbie')
-          console.log('User status from Firebase:', userData.status)
         }
       }
     }
     checkUserStatus()
   }, [user])
 
-  // Экран блокировки
   if (userStatus === 'blocked') {
     return (
-      <div className="app-surface flex min-h-screen items-center justify-center p-4">
+      <div
+        className={`app-surface flex min-h-screen items-center justify-center p-4 ${themeEffective === 'light' ? 'light-theme' : ''}`}
+      >
         <div className="card-premium max-w-md w-full border-red-500/40 bg-red-950/25 text-center shadow-legend-soft">
-          <div className="text-6xl mb-4">🚫</div>
-          <h1 className="text-xl font-serif font-bold text-red-400 mb-2">
-            Извините, вы больше не член клуба
-          </h1>
-          <p className="text-sm text-legend-light/60 mb-4">
-            Ваш аккаунт заблокирован администрацией
-          </p>
+          <div className="mb-4 text-6xl">🚫</div>
+          <h1 className="mb-2 font-serif text-xl font-bold text-red-400">{t('blocked_title')}</h1>
+          <p className="mb-4 text-sm text-legend-light/60">{t('blocked_sub')}</p>
           {blockReason && (
-            <p className="text-xs text-red-300/80 bg-red-900/20 rounded p-2 mb-4">
-              Причина: {blockReason}
+            <p className="mb-4 rounded bg-red-900/20 p-2 text-xs text-red-300/80">
+              {t('blocked_reason')}: {blockReason}
             </p>
           )}
-          <p className="text-xs text-legend-light/40">
-            Если вы считаете это ошибкой, обратитесь в поддержку
-          </p>
+          <p className="text-xs text-legend-light/40">{t('blocked_support')}</p>
         </div>
       </div>
     )
@@ -87,7 +78,7 @@ export default function App() {
 
   if (!isReady) {
     return (
-      <div className="app-surface flex min-h-screen items-center justify-center">
+      <div className={`app-surface flex min-h-screen items-center justify-center ${themeEffective === 'light' ? 'light-theme' : ''}`}>
         <div className="text-center">
           <div className="relative mx-auto mb-5 h-16 w-16">
             <div className="absolute inset-0 rounded-full border-2 border-legend-gold/15" />
@@ -96,56 +87,50 @@ export default function App() {
               ◊
             </div>
           </div>
-          <p className="font-serif text-sm tracking-wide text-legend-light/55">Загрузка клуба…</p>
+          <p className="font-serif text-sm tracking-wide text-legend-light/55">{t('loading')}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="app-surface flex h-screen flex-col font-sans text-legend-light">
-      {/* Header */}
+    <div
+      className={`app-surface flex h-screen flex-col font-sans text-legend-light ${themeEffective === 'light' ? 'light-theme' : ''}`}
+    >
       <Header userLevel={userLevel} />
 
-      {/* Main Content */}
       <div className="flex-1 overflow-y-auto overscroll-y-contain">
         {currentPage === 'profile' && (
-          <Profile 
-            user={user} 
-            userLevel={userLevel} 
-            referralCount={referralCount}
-          />
+          <Profile user={user} userLevel={userLevel} referralCount={referralCount} />
         )}
 
         {currentPage === 'referral' && (
-          <ReferralSystem 
-            referralCount={referralCount}
-            setReferralCount={setReferralCount}
-          />
+          <ReferralSystem referralCount={referralCount} setReferralCount={setReferralCount} />
         )}
 
-        {currentPage === 'booking' && (
-          <Booking />
-        )}
+        {currentPage === 'booking' && <Booking />}
 
-        {currentPage === 'settings' && (
-          <Settings user={user} />
-        )}
+        {currentPage === 'settings' && <Settings user={user} />}
 
-        {currentPage === 'admin' && (
-          <AdminPanel />
-        )}
+        {currentPage === 'admin' && <AdminPanel />}
       </div>
 
-      {/* Main Button */}
       <MainButton currentPage={currentPage} />
 
-      {/* Bottom Navigation */}
-      <BottomNavigation 
-        currentPage={currentPage} 
+      <BottomNavigation
+        currentPage={currentPage}
         setCurrentPage={setCurrentPage}
         isAdmin={user?.id?.toString() === ADMIN_ID}
       />
     </div>
+  )
+}
+
+export default function App() {
+  const tg = useTelegramApp()
+  return (
+    <PreferencesProvider user={tg.user} webApp={tg.webApp}>
+      <AppShell tg={tg} />
+    </PreferencesProvider>
   )
 }

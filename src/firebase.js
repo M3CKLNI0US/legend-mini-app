@@ -15,6 +15,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 export const database = getDatabase(app)
 
+export function defaultCardNumberFromUserId(userId) {
+  const s = String(userId).replace(/\D/g, '')
+  const last4 = parseInt((s.slice(-4) || '0'), 10) || 0
+  return String(last4 % 10000).padStart(4, '0')
+}
+
+/** Строго 4 цифры 0000–9999 */
+export function parseCardNumberInput(raw) {
+  const d = String(raw ?? '').replace(/\D/g, '').slice(-4).padStart(4, '0')
+  if (!/^\d{4}$/.test(d)) return null
+  return d
+}
+
 /** Полная перезапись узла пользователя с объединением с уже сохранёнными полями */
 export const saveUserToFirebase = async (userData) => {
   try {
@@ -32,6 +45,18 @@ export const saveUserToFirebase = async (userData) => {
     }
     if (merged.smsNotifications === undefined && existing.smsNotifications === undefined) {
       merged.smsNotifications = false
+    }
+    if (merged.cardNumber == null || String(merged.cardNumber).trim() === '') {
+      merged.cardNumber = existing.cardNumber || defaultCardNumberFromUserId(id)
+    } else if (typeof merged.cardNumber === 'string') {
+      const parsed = parseCardNumberInput(merged.cardNumber)
+      if (parsed) merged.cardNumber = parsed
+      else merged.cardNumber = existing.cardNumber || defaultCardNumberFromUserId(id)
+    }
+    if (merged.bonusBalance == null || merged.bonusBalance === '' || Number.isNaN(Number(merged.bonusBalance))) {
+      merged.bonusBalance = typeof existing.bonusBalance === 'number' ? existing.bonusBalance : 0
+    } else {
+      merged.bonusBalance = Math.max(0, Math.round(Number(merged.bonusBalance) * 100) / 100)
     }
     await set(ref(database, `users/${id}`), merged)
     return true
