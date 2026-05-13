@@ -56,6 +56,65 @@ function AppShell({ tg }) {
     checkUserStatus()
   }, [user])
 
+  // Обработка команд бота
+  useEffect(() => {
+    const webApp = window.Telegram?.WebApp
+
+    // Проверяем команду из URL параметров
+    const urlParams = new URLSearchParams(window.location.search)
+    const commandFromUrl = urlParams.get('command')
+
+    // Проверяем команду из initDataUnsafe
+    const commandFromInitData = webApp?.initDataUnsafe?.query?.command
+
+    // Определяем команду
+    const command = commandFromUrl || commandFromInitData
+
+    if (command) {
+      console.log('Получена команда бота:', command)
+
+      switch (command) {
+        case 'start':
+          setCurrentPage('profile')
+          break
+        case 'profile':
+          setCurrentPage('profile')
+          break
+        case 'booking':
+          setCurrentPage('booking')
+          break
+        case 'referral':
+          setCurrentPage('referral')
+          break
+        case 'settings':
+          setCurrentPage('settings')
+          break
+        case 'admin':
+          // Проверяем, является ли пользователь админом
+          if (user?.id?.toString() === ADMIN_ID) {
+            setCurrentPage('admin')
+          } else {
+            setCurrentPage('profile') // Если не админ, перенаправляем на профиль
+          }
+          break
+        case 'help':
+          // Для help можно показать профиль или добавить специальную страницу
+          setCurrentPage('profile')
+          break
+        default:
+          console.log('Неизвестная команда:', command)
+          setCurrentPage('profile')
+          break
+      }
+
+      // Очищаем команду из URL после обработки
+      if (commandFromUrl) {
+        const newUrl = window.location.pathname + window.location.hash
+        window.history.replaceState({}, document.title, newUrl)
+      }
+    }
+  }, [user])
+
   if (userStatus === 'blocked') {
     return (
       <div
